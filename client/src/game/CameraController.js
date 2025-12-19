@@ -164,11 +164,15 @@ export class CameraController {
         panY /= length;
       }
       
-      // Apply panning with deltaTime for smooth movement
-      // Use same panSpeed as MMB but scale by deltaTime for frame-rate independence
-      const speed = 50; // Adjust speed multiplier
-      // Don't include vertical movement for WASD (only horizontal panning)
-      this.panCamera(panX * speed * deltaTime, panY * speed * deltaTime, false);
+      // Apply panning - simulate pixel-like movement for smooth WASD
+      // Use a speed that feels similar to MMB dragging (pixels per second)
+      // MMB typically moves at ~1-2 pixels per frame, so we simulate that
+      const pixelsPerSecond = 60; // Reasonable speed for keyboard input
+      const deltaX = panX * pixelsPerSecond * deltaTime;
+      const deltaY = panY * pixelsPerSecond * deltaTime;
+      
+      // Call panCamera with same signature as MMB (includeVertical = false for horizontal-only panning)
+      this.panCamera(deltaX, deltaY, false);
     }
     
     // Constrain camera position to prevent going below terrain
