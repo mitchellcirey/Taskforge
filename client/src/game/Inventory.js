@@ -5,7 +5,7 @@ export class Inventory {
   constructor(maxSize = 4) {
     // Slot-based inventory system
     this.toolSlots = [null, null]; // Slots 1-2, store tool type strings
-    this.itemSlots = [null, null, null, null]; // Slots 3-6, store { type, count } or null
+    this.itemSlots = [null, null, null, null]; // Slots 3-6, store item type strings (no stacking - 1 per slot)
     this.selectedSlot = 1; // Currently selected slot (1-6)
     this.maxSize = maxSize; // Max items in slots 3-6 (not including tools)
     
@@ -41,18 +41,20 @@ export class Inventory {
   getItemSlot(index) {
     // index is 1-based (slot 3-6)
     if (index >= 3 && index <= 6) {
-      return this.itemSlots[index - 3];
+      const itemType = this.itemSlots[index - 3];
+      return itemType ? { type: itemType, count: 1 } : null;
     }
     return null;
   }
 
   setItemSlot(index, itemType, count = 1) {
     // index is 1-based (slot 3-6)
+    // Note: count is ignored - each slot holds exactly 1 item
     if (index >= 3 && index <= 6) {
       if (itemType === null) {
         this.itemSlots[index - 3] = null;
       } else if (!this.isTool(itemType)) {
-        this.itemSlots[index - 3] = { type: itemType, count: count };
+        this.itemSlots[index - 3] = itemType; // Store just the type, no count
       } else {
         return false; // Tools cannot go in item slots
       }
@@ -64,30 +66,37 @@ export class Inventory {
 
   addItemToSlot(itemType, count = 1) {
     // Auto-assign to first available slot in slots 3-6
+    // Note: count is ignored - each slot holds exactly 1 item (no stacking)
     if (this.isTool(itemType)) {
       return false; // Tools must be manually assigned to tool slots
     }
 
-    // Check if item already exists in a slot and can stack
-    for (let i = 0; i < this.itemSlots.length; i++) {
-      const slot = this.itemSlots[i];
-      if (slot && slot.type === itemType) {
-        slot.count += count;
-        this.updateLegacyMap();
-        return true;
-      }
+    // Check if inventory already has items - if so, only allow same type
+    const existingItemType = this.getFirstItemType();
+    if (existingItemType !== null && existingItemType !== itemType) {
+      return false; // Can only pick up same resource type
     }
 
-    // Find first empty slot
+    // Find first empty slot (no stacking - each item takes its own slot)
     for (let i = 0; i < this.itemSlots.length; i++) {
       if (this.itemSlots[i] === null) {
-        this.itemSlots[i] = { type: itemType, count: count };
+        this.itemSlots[i] = itemType; // Store just the type
         this.updateLegacyMap();
         return true;
       }
     }
 
     return false; // All slots full
+  }
+
+  getFirstItemType() {
+    // Get the first item type in inventory (slots 3-6 only, not tools)
+    for (let i = 0; i < this.itemSlots.length; i++) {
+      if (this.itemSlots[i] !== null) {
+        return this.itemSlots[i];
+      }
+    }
+    return null;
   }
 
   // Legacy methods for backward compatibility
@@ -108,6 +117,7 @@ export class Inventory {
   }
 
   removeItem(itemType, count = 1) {
+    // Note: count is ignored - each slot holds exactly 1 item
     // First check tool slots
     for (let i = 0; i < this.toolSlots.length; i++) {
       if (this.toolSlots[i] === itemType) {
@@ -117,22 +127,16 @@ export class Inventory {
       }
     }
 
-    // Check item slots
+    // Check item slots (no stacking - just remove the item)
     for (let i = 0; i < this.itemSlots.length; i++) {
-      const slot = this.itemSlots[i];
-      if (slot && slot.type === itemType) {
-        if (slot.count >= count) {
-          slot.count -= count;
-          if (slot.count <= 0) {
-            this.itemSlots[i] = null;
-          }
-          this.updateLegacyMap();
-          return true;
-        }
+      if (this.itemSlots[i] === itemType) {
+        this.itemSlots[i] = null;
+        this.updateLegacyMap();
+        return true;
       }
     }
 
-    return false; // Not enough items
+    return false; // Item not found
   }
 
   hasItem(itemType, count = 1) {
@@ -143,12 +147,11 @@ export class Inventory {
       }
     }
 
-    // Check item slots
+    // Check item slots (no stacking - count how many slots have this item)
     let totalCount = 0;
     for (let i = 0; i < this.itemSlots.length; i++) {
-      const slot = this.itemSlots[i];
-      if (slot && slot.type === itemType) {
-        totalCount += slot.count;
+      if (this.itemSlots[i] === itemType) {
+        totalCount += 1; // Each slot holds exactly 1 item
       }
     }
 
@@ -163,12 +166,11 @@ export class Inventory {
       }
     }
 
-    // Check item slots
+    // Check item slots (no stacking - count how many slots have this item)
     let totalCount = 0;
     for (let i = 0; i < this.itemSlots.length; i++) {
-      const slot = this.itemSlots[i];
-      if (slot && slot.type === itemType) {
-        totalCount += slot.count;
+      if (this.itemSlots[i] === itemType) {
+        totalCount += 1; // Each slot holds exactly 1 item
       }
     }
 
@@ -211,10 +213,10 @@ export class Inventory {
       }
     }
 
-    // Add regular items
+    // Add regular items (each slot holds exactly 1 item)
     for (let i = 0; i < this.itemSlots.length; i++) {
       if (this.itemSlots[i] !== null) {
-        items.push(this.itemSlots[i]);
+        items.push({ type: this.itemSlots[i], count: 1 });
       }
     }
 
@@ -247,18 +249,18 @@ export class Inventory {
     // Add tools
     for (let i = 0; i < this.toolSlots.length; i++) {
       if (this.toolSlots[i] !== null) {
-        this.items.set(this.toolSlots[i], 1);
+        const currentCount = this.items.get(this.toolSlots[i]) || 0;
+        this.items.set(this.toolSlots[i], currentCount + 1);
         this.currentSize += 1;
       }
     }
 
-    // Add items
+    // Add items (each slot holds exactly 1 item)
     for (let i = 0; i < this.itemSlots.length; i++) {
-      const slot = this.itemSlots[i];
-      if (slot !== null) {
-        const currentCount = this.items.get(slot.type) || 0;
-        this.items.set(slot.type, currentCount + slot.count);
-        this.currentSize += slot.count;
+      if (this.itemSlots[i] !== null) {
+        const currentCount = this.items.get(this.itemSlots[i]) || 0;
+        this.items.set(this.itemSlots[i], currentCount + 1);
+        this.currentSize += 1;
       }
     }
   }

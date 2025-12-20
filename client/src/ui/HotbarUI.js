@@ -243,13 +243,9 @@ export class HotbarUI {
 
       if (itemData) {
         slotItem.textContent = itemData.type;
+        // No counts displayed - items don't stack (1 per slot)
         if (slotCount) {
-          if (itemData.count > 1) {
-            slotCount.textContent = itemData.count;
-            slotCount.style.display = 'block';
-          } else {
-            slotCount.style.display = 'none';
-          }
+          slotCount.style.display = 'none';
         }
         if (slotLabel && i <= 2) {
           slotLabel.style.display = 'block';

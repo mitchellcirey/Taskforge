@@ -502,8 +502,28 @@ export class InteractionManager {
     // Right mouse button - Deposit items to storage or drop on ground
     if (!this.player || !this.player.inventory) return;
 
-    const items = this.player.inventory.getAllItems();
-    if (items.length === 0) return;
+    const selectedSlot = this.player.inventory.selectedSlot;
+    
+    // Get item from selected slot
+    const selectedSlotItem = this.player.inventory.getSelectedSlot();
+    if (!selectedSlotItem || !selectedSlotItem.type) return;
+
+    const itemType = selectedSlotItem.type;
+
+    // Enforce slot restrictions:
+    // - Tools (slots 1-2) can only drop if that specific tool slot is selected
+    // - Items (slots 3-6) can drop if any item slot (3-6) is selected
+    if (selectedSlot >= 1 && selectedSlot <= 2) {
+      // Tool slot selected - verify it's actually a tool
+      if (!this.player.inventory.isTool(itemType)) {
+        return; // Don't drop if tool slot doesn't contain a tool
+      }
+    } else if (selectedSlot >= 3 && selectedSlot <= 6) {
+      // Item slot selected - verify it's not a tool
+      if (this.player.inventory.isTool(itemType)) {
+        return; // Don't drop tools from item slots
+      }
+    }
 
     // Get mouse position
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -532,8 +552,7 @@ export class InteractionManager {
         if (clickedBuilding && clickedBuilding.buildingType === 'storage' && this.player) {
           const playerPos = this.player.getPosition();
           if (clickedBuilding.canInteract && clickedBuilding.canInteract(playerPos)) {
-            // Try to deposit the first item in inventory
-            const itemType = items[0].type;
+            // Try to deposit the item from selected slot
             if (clickedBuilding.depositItem(itemType, 1)) {
               this.player.inventory.removeItem(itemType, 1);
               // Update hand item display
@@ -568,14 +587,14 @@ export class InteractionManager {
       
       if (playerTilePos.tileX === tileX && playerTilePos.tileZ === tileZ) {
         // Player is on the tile, drop immediately
-        this.dropItemAt(tile.worldX, tile.worldZ, items[0].type);
+        this.dropItemAt(tile.worldX, tile.worldZ, itemType);
       } else {
         // Player needs to travel to the tile first
         // Store drop action to execute when player arrives
         this.player.pendingDropAction = {
           x: tile.worldX,
           z: tile.worldZ,
-          itemType: items[0].type
+          itemType: itemType
         };
         this.player.moveTo(tileX, tileZ);
       }
