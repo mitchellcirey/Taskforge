@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 
 export class CameraController {
-  constructor(camera, domElement) {
+  constructor(camera, domElement, mapBounds = null) {
     this.camera = camera;
     this.domElement = domElement;
+    
+    // Map bounds (if provided) - { minX, maxX, minZ, maxZ }
+    this.mapBounds = mapBounds;
     
     // Focus point on ground plane (y=0)
     this.focusPoint = new THREE.Vector3(0, 0, 0);
@@ -11,16 +14,18 @@ export class CameraController {
     // Yaw angle (rotation around Y-axis, 0-2π)
     this.yaw = Math.PI / 4; // 45 degrees initial
     
-    // Fixed pitch angle (45 degrees in radians) - never changes
-    this.fixedPitch = Math.PI / 4;
+    // Pitch angle (45 degrees minimum, can go higher but not lower)
+    this.pitch = Math.PI / 4; // 45 degrees default
+    this.minPitch = Math.PI / 4; // 45 degrees minimum
+    this.maxPitch = Math.PI / 2.2; // ~82 degrees maximum (prevent going too vertical)
     
     // Distance from focus point (controls zoom)
     this.distance = 40;
     this.minDistance = 10;
-    this.maxDistance = 50; // Reduced max zoom distance
+    this.maxDistance = 40; // Reduced max zoom distance
     
     // Movement speeds (constant, no acceleration)
-    this.panSpeed = 20.0; // units per second
+    this.panSpeed = 40.0; // units per second (increased for faster WASD movement)
     this.rotateSpeed = 0.005; // radians per pixel for mouse drag
     this.zoomSpeed = 0.15; // zoom factor per scroll step
     
@@ -68,7 +73,7 @@ export class CameraController {
   }
 
   /**
-   * Updates camera position based on focus point, yaw, distance, and fixed pitch
+   * Updates camera position based on focus point, yaw, distance, and pitch
    */
   updateCameraPosition() {
     // Calculate camera position using spherical coordinates
@@ -76,8 +81,8 @@ export class CameraController {
     // y = distance * sin(pitch)
     // z = focus.z + distance * cos(yaw) * cos(pitch)
     
-    const cosPitch = Math.cos(this.fixedPitch);
-    const sinPitch = Math.sin(this.fixedPitch);
+    const cosPitch = Math.cos(this.pitch);
+    const sinPitch = Math.sin(this.pitch);
     const cosYaw = Math.cos(this.yaw);
     const sinYaw = Math.sin(this.yaw);
     
@@ -110,35 +115,39 @@ export class CameraController {
   onWheel(event) {
     event.preventDefault();
     
-    // Get cursor position on ground plane before zoom
-    const cursorWorldPosBefore = this.getWorldPositionFromScreen(event.clientX, event.clientY);
+    // Get cursor position on ground plane before zoom (target point to keep fixed)
+    const targetPointBefore = this.getWorldPositionFromScreen(event.clientX, event.clientY);
     
     // Calculate zoom factor
     const delta = event.deltaY;
     const zoomFactor = delta > 0 ? (1 + this.zoomSpeed) : (1 - this.zoomSpeed);
     
-    // Adjust distance (clamp to min/max)
+    // Store old distance
     const oldDistance = this.distance;
+    
+    // Adjust distance (clamp to min/max)
     this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, this.distance * zoomFactor));
     
     // Only adjust focus if distance actually changed
     if (Math.abs(this.distance - oldDistance) > 0.001) {
-      // Update camera position with new distance
+      // Temporarily update camera position to see where cursor points after zoom
       this.updateCameraPosition();
       
-      // Get cursor world position after zoom
-      const cursorWorldPosAfter = this.getWorldPositionFromScreen(event.clientX, event.clientY);
+      // Get cursor position on ground plane after zoom
+      const targetPointAfter = this.getWorldPositionFromScreen(event.clientX, event.clientY);
       
-      // Calculate difference - this is how much the focus needs to move
-      // to keep the cursor pointing at the same world position
-      const offsetX = cursorWorldPosBefore.x - cursorWorldPosAfter.x;
-      const offsetZ = cursorWorldPosBefore.z - cursorWorldPosAfter.z;
+      // Calculate the offset needed to keep the target point fixed
+      const offsetX = targetPointBefore.x - targetPointAfter.x;
+      const offsetZ = targetPointBefore.z - targetPointAfter.z;
       
-      // Adjust focus point to compensate
+      // Adjust focus point to compensate for the shift
       this.focusPoint.x += offsetX;
       this.focusPoint.z += offsetZ;
       
-      // Update camera position again with adjusted focus
+      // Clamp to bounds before final update
+      this.clampFocusToBounds();
+      
+      // Update camera position again with corrected focus
       this.updateCameraPosition();
     }
   }
@@ -165,11 +174,16 @@ export class CameraController {
       const deltaY = event.clientY - this.previousMousePosition.y;
       
       if (event.shiftKey || this.isRotating) {
-        // SHIFT+MMB: Rotate camera (yaw only)
+        // SHIFT+MMB: Rotate camera (yaw with deltaX, pitch with deltaY)
         this.yaw -= deltaX * this.rotateSpeed;
         // Wrap yaw to [0, 2π)
         if (this.yaw < 0) this.yaw += Math.PI * 2;
         if (this.yaw >= Math.PI * 2) this.yaw -= Math.PI * 2;
+        
+        // Adjust pitch with deltaY, but clamp to minimum of 45 degrees
+        this.pitch += deltaY * this.rotateSpeed;
+        this.pitch = Math.max(this.minPitch, Math.min(this.maxPitch, this.pitch));
+        
         this.updateCameraPosition();
       } else if (this.isDragging) {
         // MMB alone: Pan camera (horizontal only, no vertical)
@@ -239,7 +253,7 @@ export class CameraController {
       const right = new THREE.Vector3(-forward.z, 0, forward.x);
       
       // For mouse drag: drag right moves view right (focus moves left), drag up moves view up (focus moves backward)
-      const panScale = 0.02; // Scale pixels to world units
+      const panScale = 0.04; // Scale pixels to world units (increased for faster MMB movement)
       this.focusPoint.sub(right.clone().multiplyScalar(deltaX * panScale)); // drag right = focus moves left = view moves right
       this.focusPoint.add(forward.clone().multiplyScalar(deltaY * panScale)); // drag up (negative deltaY) = focus moves backward = view moves up
     }
@@ -247,7 +261,20 @@ export class CameraController {
     // Ensure focus point stays on ground plane
     this.focusPoint.y = 0;
     
+    // Clamp focus point to map bounds if provided
+    this.clampFocusToBounds();
+    
     this.updateCameraPosition();
+  }
+
+  /**
+   * Clamp focus point to map bounds
+   */
+  clampFocusToBounds() {
+    if (this.mapBounds) {
+      this.focusPoint.x = Math.max(this.mapBounds.minX, Math.min(this.mapBounds.maxX, this.focusPoint.x));
+      this.focusPoint.z = Math.max(this.mapBounds.minZ, Math.min(this.mapBounds.maxZ, this.focusPoint.z));
+    }
   }
 
   update(deltaTime) {

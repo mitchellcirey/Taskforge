@@ -166,8 +166,16 @@ export class SceneManager {
       }
     });
 
-    // Initialize camera controller
-    this.cameraController = new CameraController(this.camera, this.renderer.domElement);
+    // Initialize camera controller with map bounds
+    // Map bounds: 100x100 tiles, each tile is 1 unit, centered at origin
+    // World coordinates range from -50 to +50 (approximately -50.5 to 50.5 with edge padding)
+    const mapBounds = {
+      minX: -50,
+      maxX: 50,
+      minZ: -50,
+      maxZ: 50
+    };
+    this.cameraController = new CameraController(this.camera, this.renderer.domElement, mapBounds);
     
     // Create compass UI
     this.compassUI = new CompassUI(this.container, this.camera);
