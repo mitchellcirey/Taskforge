@@ -663,10 +663,10 @@ export class Player {
       this.handItemGroup.remove(this.handItemGroup.children[0]);
     }
     
-    // Get the first item in inventory
-    const items = this.inventory.getAllItems();
-    if (items.length > 0 && items[0].count > 0) {
-      const itemType = items[0].type;
+    // Get the selected slot item
+    const selectedSlotItem = this.inventory.getSelectedSlot();
+    if (selectedSlotItem && selectedSlotItem.type) {
+      const itemType = selectedSlotItem.type;
       const handItemMesh = this.createHandItemModel(itemType);
       if (handItemMesh) {
         handItemMesh.castShadow = true;
@@ -676,7 +676,7 @@ export class Player {
         this.currentHandItem = itemType;
       }
     } else {
-      // No items in inventory, hide hand item
+      // No item in selected slot, hide hand item
       this.handItemGroup.visible = false;
       this.currentHandItem = null;
     }

@@ -6,7 +6,7 @@ import { InteractionManager } from './InteractionManager.js';
 import { Tree } from './Tree.js';
 import { Resource } from './Resource.js';
 import { Inventory } from './Inventory.js';
-import { InventoryUI } from '../ui/InventoryUI.js';
+import { HotbarUI } from '../ui/HotbarUI.js';
 import { BuildingManager } from './BuildingManager.js';
 import { BuildingPlacementUI } from '../ui/BuildingPlacementUI.js';
 import { BuildingUI } from '../ui/BuildingUI.js';
@@ -31,7 +31,7 @@ export class SceneManager {
     this.interactionManager = null;
     this.worldObjects = [];
     this.inventory = null;
-    this.inventoryUI = null;
+    this.hotbarUI = null;
     this.buildingManager = null;
     this.buildingPlacementUI = null;
     this.currentBuildingUI = null;
@@ -97,8 +97,8 @@ export class SceneManager {
     // Create tile highlighter
     this.tileHighlighter = new TileHighlighter(this.scene, this.tileGrid);
 
-    // Create player inventory
-    this.inventory = new Inventory(20);
+    // Create player inventory (max 4 items in slots 3-6)
+    this.inventory = new Inventory(4);
     
     // Create player
     this.player = new Player(this.scene, this.tileGrid);
@@ -114,8 +114,8 @@ export class SceneManager {
     this.destinationIndicator = new DestinationIndicator(this.scene, this.tileGrid);
     this.player.destinationIndicator = this.destinationIndicator;
 
-    // Create inventory UI
-    this.inventoryUI = new InventoryUI(this.container, this.inventory);
+    // Create hotbar UI
+    this.hotbarUI = new HotbarUI(this.container, this.inventory);
 
     // Create building manager
     this.buildingManager = new BuildingManager(this.scene, this.tileGrid, this.player);
@@ -288,9 +288,14 @@ export class SceneManager {
       this.compassUI.update();
     }
 
-    // Update inventory UI
-    if (this.inventoryUI) {
-      this.inventoryUI.update();
+    // Update hotbar UI
+    if (this.hotbarUI) {
+      this.hotbarUI.update();
+    }
+
+    // Update player hand item based on selected slot
+    if (this.player && this.player.updateHandItem) {
+      this.player.updateHandItem();
     }
 
     // Update building placement preview
