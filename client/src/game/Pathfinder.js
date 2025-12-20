@@ -15,8 +15,9 @@ export class Pathfinder {
       return [];
     }
 
-    const openSet = [startTile];
-    const closedSet = [];
+    // Use Set for O(1) lookups
+    const openSet = new Set([startTile]);
+    const closedSet = new Set();
     const cameFrom = new Map();
     const gScore = new Map();
     const fScore = new Map();
@@ -24,17 +25,21 @@ export class Pathfinder {
     gScore.set(startTile, 0);
     fScore.set(startTile, this.heuristic(startTile, endTile));
 
-    while (openSet.length > 0) {
-      // Find node with lowest fScore
-      let current = openSet[0];
-      let currentIndex = 0;
-      for (let i = 1; i < openSet.length; i++) {
-        const score = fScore.get(openSet[i]) || Infinity;
-        const currentScore = fScore.get(current) || Infinity;
-        if (score < currentScore) {
-          current = openSet[i];
-          currentIndex = i;
+    while (openSet.size > 0) {
+      // Find node with lowest fScore in openSet
+      let current = null;
+      let lowestFScore = Infinity;
+      
+      for (const node of openSet) {
+        const nodeFScore = fScore.get(node) ?? Infinity;
+        if (nodeFScore < lowestFScore) {
+          lowestFScore = nodeFScore;
+          current = node;
         }
+      }
+
+      if (!current) {
+        break; // No valid path
       }
 
       if (current === endTile) {
@@ -48,30 +53,33 @@ export class Pathfinder {
         return path;
       }
 
-      openSet.splice(currentIndex, 1);
-      closedSet.push(current);
+      openSet.delete(current);
+      closedSet.add(current);
 
       // Check neighbors
       const neighbors = this.getNeighbors(current.tileX, current.tileZ);
       for (const neighbor of neighbors) {
-        if (closedSet.includes(neighbor) || !neighbor.walkable || neighbor.occupied) {
+        // Skip if already evaluated or not walkable
+        if (closedSet.has(neighbor) || !neighbor.walkable || neighbor.occupied) {
           continue;
         }
 
-        const currentGScore = gScore.get(current) || Infinity;
-        const moveCost = neighbor.moveCost || 1;
+        const currentGScore = gScore.get(current) ?? Infinity;
+        const moveCost = neighbor.moveCost ?? 1;
         const tentativeGScore = currentGScore + moveCost;
-        const neighborGScore = gScore.get(neighbor) || Infinity;
+        const neighborGScore = gScore.get(neighbor) ?? Infinity;
         
-        if (!openSet.includes(neighbor)) {
-          openSet.push(neighbor);
-        } else if (tentativeGScore >= neighborGScore) {
-          continue;
+        // If this path to neighbor is better, record it
+        if (tentativeGScore < neighborGScore) {
+          cameFrom.set(neighbor, current);
+          gScore.set(neighbor, tentativeGScore);
+          fScore.set(neighbor, tentativeGScore + this.heuristic(neighbor, endTile));
+          
+          // Add to openSet if not already there
+          if (!openSet.has(neighbor)) {
+            openSet.add(neighbor);
+          }
         }
-
-        cameFrom.set(neighbor, current);
-        gScore.set(neighbor, tentativeGScore);
-        fScore.set(neighbor, tentativeGScore + this.heuristic(neighbor, endTile));
       }
     }
 
@@ -97,27 +105,30 @@ export class Pathfinder {
       const neighborZ = tileZ + dir.z;
       const neighbor = this.tileGrid.getTile(neighborX, neighborZ);
       
-      if (neighbor && neighbor.walkable && !neighbor.occupied) {
-        // For diagonal movement, check that both cardinal neighbors are walkable
-        if (dir.cost > 1) {
-          const card1X = tileX + dir.x;
-          const card1Z = tileZ;
-          const card2X = tileX;
-          const card2Z = tileZ + dir.z;
-          
-          const card1 = this.tileGrid.getTile(card1X, card1Z);
-          const card2 = this.tileGrid.getTile(card2X, card2Z);
-          
-          if (card1 && card1.walkable && !card1.occupied &&
-              card2 && card2.walkable && !card2.occupied) {
-            neighbor.moveCost = dir.cost;
-            neighbors.push(neighbor);
-          }
-        } else {
-          neighbor.moveCost = dir.cost;
-          neighbors.push(neighbor);
+      if (!neighbor || !neighbor.walkable || neighbor.occupied) {
+        continue;
+      }
+
+      // For diagonal movement, check that both cardinal neighbors are walkable
+      if (dir.cost > 1) {
+        const card1X = tileX + dir.x;
+        const card1Z = tileZ;
+        const card2X = tileX;
+        const card2Z = tileZ + dir.z;
+        
+        const card1 = this.tileGrid.getTile(card1X, card1Z);
+        const card2 = this.tileGrid.getTile(card2X, card2Z);
+        
+        // Both cardinal directions must be walkable for diagonal movement
+        if (!card1 || !card1.walkable || card1.occupied ||
+            !card2 || !card2.walkable || card2.occupied) {
+          continue; // Can't move diagonally if cardinals are blocked
         }
       }
+      
+      // Set move cost and add to neighbors
+      neighbor.moveCost = dir.cost;
+      neighbors.push(neighbor);
     }
 
     return neighbors;
@@ -128,6 +139,7 @@ export class Pathfinder {
     const dx = Math.abs(a.tileX - b.tileX);
     const dz = Math.abs(a.tileZ - b.tileZ);
     // Use diagonal distance (optimal for 8-directional movement)
+    // This is the octile distance formula
     return Math.max(dx, dz) + (Math.sqrt(2) - 1) * Math.min(dx, dz);
   }
 }
