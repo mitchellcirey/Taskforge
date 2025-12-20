@@ -9,10 +9,10 @@ export class Resource extends WorldObject {
     
     super(scene, tileGrid, tileX, tileZ);
     this.type = type;
-    this.worldX = worldX;
-    this.worldZ = worldZ;
+    // Use centered tile position instead of passed worldX/worldZ
+    // this.worldX and this.worldZ are already set by super() from tile.worldX/worldZ
     this.count = count; // Number of items in this resource stack
-    this.interactionRange = 0.6; // Larger range for easier pickup (tile size is 1.0)
+    this.interactionRange = 1.2; // Larger range for easier pickup (scaled for tile size 2.0)
     
     // Resources don't block tiles - allow player to walk on them
     const tile = this.tileGrid.tiles[this.tileX]?.[this.tileZ];
@@ -39,8 +39,8 @@ export class Resource extends WorldObject {
         // Create a low-poly stick with a branch
         const stickGroup = new THREE.Group();
         
-        // Main stick body (cylindrical, low-poly)
-        const mainBodyGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6);
+        // Main stick body (cylindrical, low-poly) - 75% bigger
+        const mainBodyGeometry = new THREE.CylinderGeometry(0.0875, 0.0875, 1.05, 6);
         const stickMaterial = new THREE.MeshStandardMaterial({ 
           color: 0xD2B48C, // Light brown/beige
           roughness: 0.8,
@@ -49,22 +49,22 @@ export class Resource extends WorldObject {
         });
         const mainBody = new THREE.Mesh(mainBodyGeometry, stickMaterial);
         mainBody.rotation.z = Math.PI / 2; // Rotate to be horizontal
-        mainBody.position.y = 0.05;
+        mainBody.position.y = 0.0875;
         mainBody.castShadow = true;
         mainBody.receiveShadow = true;
         stickGroup.add(mainBody);
         
-        // Small branch
-        const branchGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.2, 6);
+        // Small branch - 75% bigger
+        const branchGeometry = new THREE.CylinderGeometry(0.0525, 0.0525, 0.35, 6);
         const branch = new THREE.Mesh(branchGeometry, stickMaterial);
         branch.rotation.z = Math.PI / 4; // Angle the branch
-        branch.position.set(-0.15, 0.08, 0);
+        branch.position.set(-0.2625, 0.14, 0);
         branch.castShadow = true;
         branch.receiveShadow = true;
         stickGroup.add(branch);
         
         this.mesh = stickGroup;
-        this.mesh.position.set(this.worldX, 0.05, this.worldZ);
+        this.mesh.position.set(this.worldX, 0.0875, this.worldZ);
         this.mesh.rotation.y = Math.random() * Math.PI * 2; // Random rotation
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;

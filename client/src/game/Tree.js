@@ -15,69 +15,86 @@ export class Tree extends WorldObject {
   create() {
     // Create multi-tiered low-poly evergreen tree matching the image style
     const group = new THREE.Group();
-    const scale = this.sizeVariation;
+    const baseScale = 1.2; // Base scale multiplier to make trees slightly bigger
+    const scale = this.sizeVariation * baseScale;
 
-    // Trunk (dark brown, cylindrical, low-poly)
-    const trunkHeight = 1.5 * scale;
-    const trunkTopRadius = 0.2 * scale;
-    const trunkBottomRadius = 0.25 * scale;
+    // Trunk base flare (lighter grayish-tan brown, wider at bottom)
+    const flareHeight = 0.1 * scale;
+    const flareRadius = 0.3 * scale;
+    const flareGeometry = new THREE.CylinderGeometry(flareRadius, flareRadius, flareHeight, 6);
+    const flareMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xD4C4A8, // Light grayish-tan brown for base flare
+      roughness: 0.9,
+      metalness: 0.1,
+      flatShading: true
+    });
+    const flare = new THREE.Mesh(flareGeometry, flareMaterial);
+    flare.position.y = flareHeight / 2;
+    flare.castShadow = true;
+    flare.receiveShadow = true;
+    group.add(flare);
+
+    // Trunk (medium brown, cylindrical, low-poly, slightly wider at base)
+    const trunkHeight = 1.8 * scale;
+    const trunkTopRadius = 0.25 * scale;
+    const trunkBottomRadius = 0.3 * scale;
     const trunkGeometry = new THREE.CylinderGeometry(trunkTopRadius, trunkBottomRadius, trunkHeight, 6); // Low poly with 6 sides
     const trunkMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x8B4513, // Dark brown
+      color: 0x8B6F47, // Medium desaturated brown
       roughness: 0.9,
       metalness: 0.1,
       flatShading: true // Low-poly faceted look
     });
     const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    trunk.position.y = trunkHeight / 2; // Center trunk at half its height
+    trunk.position.y = flareHeight + trunkHeight / 2; // Position on top of flare
     trunk.castShadow = true;
     trunk.receiveShadow = true;
     group.add(trunk);
 
-    // Multi-tiered canopy - bottom tier (largest, darker green)
-    const bottomTierHeight = 1.2 * scale;
-    const bottomTierRadius = 1.0 * scale;
+    // Multi-tiered canopy - bottom tier (largest, medium emerald green)
+    const bottomTierHeight = 1.4 * scale;
+    const bottomTierRadius = 1.2 * scale;
     const bottomTierGeometry = new THREE.ConeGeometry(bottomTierRadius, bottomTierHeight, 6);
     const bottomTierMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x2E8B57, // Darker emerald green (shadow areas)
+      color: 0x3CB371, // Medium emerald green (darker/shadow areas)
       roughness: 0.7,
       metalness: 0.1,
       flatShading: true
     });
     const bottomTier = new THREE.Mesh(bottomTierGeometry, bottomTierMaterial);
-    bottomTier.position.y = trunkHeight + bottomTierHeight / 2;
+    bottomTier.position.y = flareHeight + trunkHeight + bottomTierHeight / 2;
     bottomTier.castShadow = true;
     bottomTier.receiveShadow = true;
     group.add(bottomTier);
 
-    // Middle tier (medium, teal-green)
-    const middleTierHeight = 0.9 * scale;
-    const middleTierRadius = 0.7 * scale;
+    // Middle tier (medium, emerald green)
+    const middleTierHeight = 1.1 * scale;
+    const middleTierRadius = 0.85 * scale;
     const middleTierGeometry = new THREE.ConeGeometry(middleTierRadius, middleTierHeight, 6);
     const middleTierMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x40E0D0, // Teal-green (medium shade)
+      color: 0x50C878, // Medium emerald green (main color)
       roughness: 0.7,
       metalness: 0.1,
       flatShading: true
     });
     const middleTier = new THREE.Mesh(middleTierGeometry, middleTierMaterial);
-    middleTier.position.y = trunkHeight + bottomTierHeight + middleTierHeight / 2;
+    middleTier.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight / 2;
     middleTier.castShadow = true;
     middleTier.receiveShadow = true;
     group.add(middleTier);
 
-    // Top tier (smallest, lighter green/teal)
-    const topTierHeight = 0.6 * scale;
-    const topTierRadius = 0.4 * scale;
+    // Top tier (smallest, lighter emerald green with flattened apex)
+    const topTierHeight = 0.7 * scale;
+    const topTierRadius = 0.5 * scale;
     const topTierGeometry = new THREE.ConeGeometry(topTierRadius, topTierHeight, 6);
     const topTierMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x7FFFD4, // Lighter teal-green (highlight areas)
+      color: 0x66DDAE, // Lighter emerald green (highlight areas)
       roughness: 0.7,
       metalness: 0.1,
       flatShading: true
     });
     const topTier = new THREE.Mesh(topTierGeometry, topTierMaterial);
-    topTier.position.y = trunkHeight + bottomTierHeight + middleTierHeight + topTierHeight / 2;
+    topTier.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight + topTierHeight / 2;
     topTier.castShadow = true;
     topTier.receiveShadow = true;
     group.add(topTier);

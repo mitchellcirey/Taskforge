@@ -5,7 +5,7 @@ export class Terrain {
     this.scene = scene;
     this.width = width;
     this.height = height;
-    this.tileSize = 1;
+    this.tileSize = 2;
     this.mesh = null;
   }
 

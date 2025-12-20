@@ -8,7 +8,7 @@ export class WorldObject {
     this.tileZ = tileZ;
     this.mesh = null;
     this.isInteractable = true;
-    this.interactionRange = 1.5;
+    this.interactionRange = 3.0; // Scaled for tile size 2.0 (was 1.5 for tile size 1.0)
     
     const tile = this.tileGrid.tiles[tileX]?.[tileZ];
     if (tile) {

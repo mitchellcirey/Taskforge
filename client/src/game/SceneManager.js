@@ -155,11 +155,22 @@ export class SceneManager {
         obj.chop = () => {
           const result = originalChop();
           if (result && result.type) {
-            // Spawn resources around tree position
-            for (let i = 0; i < result.count; i++) {
-              const offsetX = (Math.random() - 0.5) * 0.8;
-              const offsetZ = (Math.random() - 0.5) * 0.8;
-              this.spawnResource(obj.worldX + offsetX, obj.worldZ + offsetZ, result.type);
+            // Spawn resources on tiles around tree position (resources will be centered on their tiles)
+            const treeTile = this.tileGrid.getTileAtWorldPosition(obj.worldX, obj.worldZ);
+            if (treeTile) {
+              for (let i = 0; i < result.count; i++) {
+                // Find a nearby tile (within 1 tile radius)
+                const offsetX = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
+                const offsetZ = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
+                const nearbyTile = this.tileGrid.getTile(treeTile.x + offsetX, treeTile.z + offsetZ);
+                if (nearbyTile && nearbyTile.walkable) {
+                  // Spawn at tile center - Resource constructor will center it on the tile
+                  this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.type);
+                } else {
+                  // Fallback to tree's tile if nearby tile is invalid
+                  this.spawnResource(treeTile.worldX, treeTile.worldZ, result.type);
+                }
+              }
             }
           }
         };
@@ -167,13 +178,13 @@ export class SceneManager {
     });
 
     // Initialize camera controller with map bounds
-    // Map bounds: 100x100 tiles, each tile is 1 unit, centered at origin
-    // World coordinates range from -50 to +50 (approximately -50.5 to 50.5 with edge padding)
+    // Map bounds: 100x100 tiles, each tile is 2 units, centered at origin
+    // World coordinates range from -100 to +100 (approximately -101 to 101 with edge padding)
     const mapBounds = {
-      minX: -50,
-      maxX: 50,
-      minZ: -50,
-      maxZ: 50
+      minX: -100,
+      maxX: 100,
+      minZ: -100,
+      maxZ: 100
     };
     this.cameraController = new CameraController(this.camera, this.renderer.domElement, mapBounds);
     

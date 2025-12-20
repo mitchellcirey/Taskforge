@@ -672,7 +672,8 @@ export class Player {
         
       case 'stick':
         const stickGroup = new THREE.Group();
-        const stickBodyGeometry = new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.6 * scale, 6);
+        // 75% bigger sticks
+        const stickBodyGeometry = new THREE.CylinderGeometry(0.0875 * scale, 0.0875 * scale, 1.05 * scale, 6);
         const stickMaterial = new THREE.MeshStandardMaterial({ 
           color: 0xD2B48C,
           roughness: 0.8,
@@ -683,10 +684,10 @@ export class Player {
         stickBody.rotation.z = Math.PI / 2;
         stickGroup.add(stickBody);
         
-        const branchGeometry = new THREE.CylinderGeometry(0.03 * scale, 0.03 * scale, 0.2 * scale, 6);
+        const branchGeometry = new THREE.CylinderGeometry(0.0525 * scale, 0.0525 * scale, 0.35 * scale, 6);
         const branch = new THREE.Mesh(branchGeometry, stickMaterial);
         branch.rotation.z = Math.PI / 4;
-        branch.position.set(-0.15 * scale, 0.08 * scale, 0);
+        branch.position.set(-0.2625 * scale, 0.14 * scale, 0);
         stickGroup.add(branch);
         return stickGroup;
         
@@ -798,7 +799,7 @@ export class Player {
         const dx = obj.worldX - playerPos.x;
         const dz = obj.worldZ - playerPos.z;
         const distance = Math.sqrt(dx * dx + dz * dz);
-        const inRange = distance <= (obj.interactionRange || 0.6);
+        const inRange = distance <= (obj.interactionRange || 1.2);
         
         return sameTile || inRange;
       }

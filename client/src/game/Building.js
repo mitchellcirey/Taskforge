@@ -340,7 +340,8 @@ export class Building extends WorldObject {
         break;
         
       case 'stick':
-        const stickBodyGeometry = new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.6 * scale, 6);
+        // 75% bigger sticks
+        const stickBodyGeometry = new THREE.CylinderGeometry(0.0875 * scale, 0.0875 * scale, 1.05 * scale, 6);
         const stickMaterial = new THREE.MeshStandardMaterial({ 
           color: 0x8B4513, // Darker brown for better visibility
           roughness: 0.8,
@@ -351,10 +352,10 @@ export class Building extends WorldObject {
         stickBody.rotation.z = Math.PI / 2;
         iconGroup.add(stickBody);
         
-        const branchGeometry = new THREE.CylinderGeometry(0.03 * scale, 0.03 * scale, 0.2 * scale, 6);
+        const branchGeometry = new THREE.CylinderGeometry(0.0525 * scale, 0.0525 * scale, 0.35 * scale, 6);
         const branch = new THREE.Mesh(branchGeometry, stickMaterial);
         branch.rotation.z = Math.PI / 4;
-        branch.position.set(-0.15 * scale, 0.08 * scale, 0);
+        branch.position.set(-0.2625 * scale, 0.14 * scale, 0);
         iconGroup.add(branch);
         break;
         
