@@ -39,7 +39,8 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        { from: 'public', to: 'public' }
+        { from: 'public', to: 'public' },
+        { from: '../version.json', to: 'version.json' }
       ]
     })
   ],

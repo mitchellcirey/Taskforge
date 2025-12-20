@@ -4,6 +4,7 @@ import { MainMenu } from '../ui/MainMenu.js';
 import { PauseMenu } from '../ui/PauseMenu.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
+import { VersionWatermark } from '../ui/VersionWatermark.js';
 import { GameState } from './GameState.js';
 import { AudioManager } from './AudioManager.js';
 
@@ -16,6 +17,7 @@ export class Game {
     this.pauseMenu = null;
     this.settingsMenu = null;
     this.adminMenu = null;
+    this.versionWatermark = null;
     this.gameState = new GameState();
     this.audioManager = new AudioManager();
     this.isInitialized = false;
@@ -94,6 +96,9 @@ export class Game {
 
     // Create admin menu
     this.adminMenu = new AdminMenu(this.container);
+
+    // Create version watermark (always visible)
+    this.versionWatermark = new VersionWatermark(this.container);
 
     // Set initial state
     this.gameState.setState(GameState.MENU);
