@@ -70,6 +70,16 @@ export class WorldObject {
     // Override in subclasses
   }
 
+  /**
+   * Harvests this resource and returns what should be dropped.
+   * Override in subclasses to define harvest behavior.
+   * @returns {HarvestResult[]|null} Array of harvest results, or null if not harvestable
+   */
+  harvest() {
+    // Default: not harvestable
+    return null;
+  }
+
   remove() {
     if (this.mesh) {
       this.scene.remove(this.mesh);

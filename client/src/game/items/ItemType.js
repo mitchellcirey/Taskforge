@@ -132,6 +132,45 @@ export class ItemType {
   }
 
   /**
+   * Gets the speed modifier when carrying this item.
+   * Returns a multiplier for the base speed (1.0 = no change, 0.5 = 50% speed, etc.)
+   * @returns {number} Speed modifier (default: 1.0, no effect)
+   */
+  getSpeedModifier() {
+    return 1.0; // Default: no speed change
+  }
+
+  /**
+   * Gets the position offset for when this item is held in the player's hand.
+   * Returns [x, y, z] offset relative to the player's hand position.
+   * @returns {[number, number, number]} Position offset [x, y, z]
+   */
+  getHandPosition() {
+    return [0.4, 0.4, 0.1]; // Default: right hand position
+  }
+
+  /**
+   * Positions the hand item group when this item is held by the player.
+   * @param {THREE.Group} handItemGroup - The hand item group to position
+   */
+  positionHandItem(handItemGroup) {
+    const [x, y, z] = this.getHandPosition();
+    handItemGroup.position.set(x, y, z);
+  }
+
+  /**
+   * Checks if this item can be added to the inventory given the current inventory state.
+   * @param {Object} inventoryInfo - Information about the current inventory state
+   * @param {Function} inventoryInfo.hasItem - Function to check if inventory has an item: (itemType, count) => boolean
+   * @param {Function} inventoryInfo.getFirstItemType - Function to get the first item type in inventory: () => string|null
+   * @returns {boolean} True if the item can be added, false otherwise
+   */
+  canAddToInventory(inventoryInfo) {
+    // Default: no restrictions
+    return true;
+  }
+
+  /**
    * Positions and configures a world model mesh in the scene.
    * @param {THREE.Object3D} mesh - The mesh to position
    * @param {number} worldX - World X coordinate

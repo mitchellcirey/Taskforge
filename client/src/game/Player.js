@@ -11,7 +11,8 @@ export class Player {
     this.currentTile = null;
     this.targetPosition = null;
     this.path = [];
-    this.speed = 6.0; // Increased movement speed
+    this.baseSpeed = 6.0; // Base movement speed
+    this.speed = 6.0; // Current movement speed (can be modified by carrying items)
     this.walkAnimationTime = 0; // For walk animation
     this.pendingDropAction = null; // Store drop action when traveling to drop location
     this.isMoving = false;
@@ -273,6 +274,24 @@ export class Player {
   }
 
   update(deltaTime) {
+    // Update movement speed based on what player is carrying
+    // Each item type can modify movement speed
+    let speedModifier = 1.0; // Default: no speed change
+    
+    if (this.inventory) {
+      const allItems = this.inventory.getAllItems();
+      // Find the minimum speed modifier (worst case - heaviest item slows you down)
+      for (const item of allItems) {
+        const itemType = getItemType(item.type);
+        if (itemType) {
+          const modifier = itemType.getSpeedModifier();
+          speedModifier = Math.min(speedModifier, modifier);
+        }
+      }
+    }
+    
+    this.speed = this.baseSpeed * speedModifier;
+    
     if (this.path.length > 0 && this.isMoving) {
       const targetTile = this.path[0];
       const targetX = targetTile.worldX;
@@ -589,20 +608,42 @@ export class Player {
       this.handItemGroup.remove(this.handItemGroup.children[0]);
     }
     
-    // Get the selected slot item
-    const selectedSlotItem = this.inventory.getSelectedSlot();
-    if (selectedSlotItem && selectedSlotItem.type) {
-      const itemType = selectedSlotItem.type;
-      const handItemMesh = this.createHandItemModel(itemType);
+    // Resources take priority over tools - check for resources first (slots 3-6)
+    let itemToShow = null;
+    for (let slot = 3; slot <= 6; slot++) {
+      const itemSlot = this.inventory.getItemSlot(slot);
+      if (itemSlot && itemSlot.type) {
+        itemToShow = itemSlot;
+        break; // Found first resource, use it
+      }
+    }
+    
+    // If no resource found, check selected slot (which might be a tool)
+    if (!itemToShow) {
+      itemToShow = this.inventory.getSelectedSlot();
+    }
+    
+    if (itemToShow && itemToShow.type) {
+      const itemTypeId = itemToShow.type;
+      const handItemMesh = this.createHandItemModel(itemTypeId);
       if (handItemMesh) {
         handItemMesh.castShadow = true;
         handItemMesh.receiveShadow = true;
         this.handItemGroup.add(handItemMesh);
         this.handItemGroup.visible = true;
-        this.currentHandItem = itemType;
+        this.currentHandItem = itemTypeId;
+        
+        // Position hand item - let the ItemType handle its own positioning
+        const itemType = getItemType(itemTypeId);
+        if (itemType) {
+          itemType.positionHandItem(this.handItemGroup);
+        } else {
+          // Fallback to default right hand position
+          this.handItemGroup.position.set(0.4, 0.4, 0.1);
+        }
       }
     } else {
-      // No item in selected slot, hide hand item
+      // No item to show, hide hand item
       this.handItemGroup.visible = false;
       this.currentHandItem = null;
     }

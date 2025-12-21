@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { WorldObject } from './WorldObject.js';
 import { Resource } from './Resource.js';
+import { HarvestResult } from './HarvestResult.js';
+import { Wood } from './items/resources/Wood.js';
 
 export class Tree extends WorldObject {
   constructor(scene, tileGrid, tileX, tileZ, sizeVariation = 1.0) {
@@ -133,14 +135,14 @@ export class Tree extends WorldObject {
     }
 
     if (this.health <= 0) {
-      this.chop();
+      this.harvest();
       return true;
     }
 
     return false;
   }
 
-  chop() {
+  harvest() {
     this.isChopped = true;
     
     // Remove tree mesh
@@ -155,8 +157,10 @@ export class Tree extends WorldObject {
       tile.content = null; // Clear tile content
     }
 
-    // Return resources to spawn (handled by SceneManager)
-    return { type: 'wood', count: 2 + Math.floor(Math.random() * 2) };
+    // Return harvest results - trees drop 1 wood log to the world
+    return [
+      new HarvestResult(new Wood(), 1, true) // dropToWorld = true
+    ];
   }
 }
 
