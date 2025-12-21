@@ -126,6 +126,12 @@ export class Inventory {
       }
       return false; // Tool slots full
     } else {
+      // Special case: logs (wood) - can only carry 1 at a time
+      if (itemType === 'wood') {
+        if (this.hasItem('wood')) {
+          return false; // Already carrying a log
+        }
+      }
       return this.addItemToSlot(itemType, count);
     }
   }
