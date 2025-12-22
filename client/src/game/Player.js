@@ -647,11 +647,9 @@ export class Player {
           }
         }
         
-        // Rotate log to be held horizontally (perpendicular to player, for 2-hand carry)
-        // Log body is already horizontal (pointing along X axis from rotation.z = Math.PI/2)
-        // Just rotate around Y to make it perpendicular to player (pointing along Z axis)
-        logGroup.rotation.y = Math.PI / 2;
-        
+        // Log body is already horizontal along X axis (from rotation.z = Math.PI/2)
+        // No additional rotation needed - log extends left-right (along X axis)
+        // This allows it to be gripped by left and right arms
         return logGroup;
         
       case 'stone':
@@ -771,9 +769,11 @@ export class Player {
         this.currentHandItem = itemType;
         
         // Position hand item based on type
-        // Logs are held with 2 hands (centered between hands, in front of player)
+        // Logs are held with 2 hands (centered horizontally, at arm level, slightly forward)
         if (itemType === 'wood') {
-          this.handItemGroup.position.set(0, 0.4, 0.4); // Centered X, same Y height, forward Z
+          // Position at arm level (Y=0.5), centered horizontally (X=0), slightly forward (Z=0.15)
+          // This places it where the character's hands can grip it (arms are at Y=0.5, X=-0.35 and 0.35)
+          this.handItemGroup.position.set(0, 0.5, 0.15);
         } else {
           // Other items held in right hand
           this.handItemGroup.position.set(0.4, 0.4, 0.1);
