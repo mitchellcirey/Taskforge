@@ -37,11 +37,6 @@ function createWindow() {
     console.error('Index path:', indexPath);
     mainWindow.loadURL('data:text/html,<h1>Build error. Please run: cd client && npm run build:dev</h1>');
   });
-  
-  // Open dev tools in development
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;

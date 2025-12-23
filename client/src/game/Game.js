@@ -74,11 +74,42 @@ export class Game {
     // Create main menu
     this.mainMenu = new MainMenu(this.container, this.gameState, this.audioManager);
     this.mainMenu.onPlay(() => this.startGame());
+    this.mainMenu.onLoadGame(() => {
+      // Placeholder for load game
+      console.log('Load Game clicked');
+      // TODO: Implement game loading functionality
+    });
     this.mainMenu.onMultiplayer(() => {
       // Placeholder for multiplayer
       console.log('Multiplayer clicked');
+      // TODO: Implement multiplayer functionality
+    });
+    this.mainMenu.onAchievements(() => {
+      // Placeholder for achievements
+      console.log('Achievements clicked');
+      // TODO: Implement achievements system
+    });
+    this.mainMenu.onSettings(() => {
+      // Open settings menu
+      if (this.settingsMenu) {
+        this.settingsMenu.show();
+      }
+    });
+    this.mainMenu.onCredits(() => {
+      // Placeholder for credits
+      console.log('Credits clicked');
+      // TODO: Implement credits/about screen
     });
     this.mainMenu.show();
+
+    // Create settings menu (basic version, will be updated when game starts)
+    this.settingsMenu = new SettingsMenu(this.container, null);
+    this.settingsMenu.onClose(() => {
+      // Return to appropriate menu when settings is closed
+      if (this.gameState.getState() === 'paused') {
+        this.pauseMenu.show();
+      }
+    });
 
     // Create pause menu
     this.pauseMenu = new PauseMenu(this.container, this.gameState);
@@ -121,15 +152,9 @@ export class Game {
       this.sceneManager = new SceneManager(this.container, this.audioManager);
       await this.sceneManager.init();
       
-      // Create settings menu after scene manager is initialized
-      if (this.sceneManager.tileGrid) {
-        this.settingsMenu = new SettingsMenu(this.container, this.sceneManager.tileGrid);
-        this.settingsMenu.onClose(() => {
-          // Return to pause menu when settings is closed
-          if (this.gameState.getState() === 'paused') {
-            this.pauseMenu.show();
-          }
-        });
+      // Update settings menu with tileGrid after scene manager is initialized
+      if (this.sceneManager.tileGrid && this.settingsMenu) {
+        this.settingsMenu.setTileGrid(this.sceneManager.tileGrid);
       }
     }
 

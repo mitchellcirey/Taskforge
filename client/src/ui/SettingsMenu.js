@@ -1,5 +1,5 @@
 export class SettingsMenu {
-  constructor(container, tileGrid) {
+  constructor(container, tileGrid = null) {
     this.container = container;
     this.tileGrid = tileGrid;
     this.element = null;
@@ -15,12 +15,18 @@ export class SettingsMenu {
       <div class="settings-content">
         <h2 class="settings-title">Settings</h2>
         <div class="settings-options">
+          ${this.tileGrid ? `
           <div class="settings-option">
             <label class="settings-label">
               <input type="checkbox" id="grid-toggle" ${this.gridVisible ? 'checked' : ''}>
               <span class="checkbox-label">Show Grid</span>
             </label>
           </div>
+          ` : `
+          <div class="settings-option">
+            <p class="settings-info">Game settings will be available after starting a game.</p>
+          </div>
+          `}
         </div>
         <div class="settings-buttons">
           <button class="settings-button" id="close-settings-button">Close</button>
@@ -101,6 +107,15 @@ export class SettingsMenu {
         font-family: 'Arial', sans-serif;
       }
 
+      .settings-info {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 16px;
+        font-family: 'Arial', sans-serif;
+        font-style: italic;
+        text-align: center;
+        margin: 0;
+      }
+
       .settings-buttons {
         display: flex;
         gap: 20px;
@@ -152,10 +167,12 @@ export class SettingsMenu {
     const gridToggle = this.element.querySelector('#grid-toggle');
     const closeButton = this.element.querySelector('#close-settings-button');
 
-    gridToggle.addEventListener('change', (e) => {
-      this.gridVisible = e.target.checked;
-      this.updateGridVisibility();
-    });
+    if (gridToggle) {
+      gridToggle.addEventListener('change', (e) => {
+        this.gridVisible = e.target.checked;
+        this.updateGridVisibility();
+      });
+    }
 
     closeButton.addEventListener('click', () => {
       this.hide();
@@ -163,6 +180,31 @@ export class SettingsMenu {
         this.onCloseCallback();
       }
     });
+  }
+
+  setTileGrid(tileGrid) {
+    this.tileGrid = tileGrid;
+    // Update the UI if settings menu is already created
+    if (this.element && tileGrid) {
+      const settingsOptions = this.element.querySelector('.settings-options');
+      if (settingsOptions && !settingsOptions.querySelector('#grid-toggle')) {
+        settingsOptions.innerHTML = `
+          <div class="settings-option">
+            <label class="settings-label">
+              <input type="checkbox" id="grid-toggle" ${this.gridVisible ? 'checked' : ''}>
+              <span class="checkbox-label">Show Grid</span>
+            </label>
+          </div>
+        `;
+        const gridToggle = this.element.querySelector('#grid-toggle');
+        if (gridToggle) {
+          gridToggle.addEventListener('change', (e) => {
+            this.gridVisible = e.target.checked;
+            this.updateGridVisibility();
+          });
+        }
+      }
+    }
   }
 
   updateGridVisibility() {
