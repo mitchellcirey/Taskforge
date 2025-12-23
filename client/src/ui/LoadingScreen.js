@@ -81,7 +81,7 @@ export class LoadingScreen {
     
     this.element.innerHTML = `
       <div class="loading-logo-top-right">
-        <img src="public/images/taskforge_logo.png" alt="Taskforge" class="logo-image">
+        <img src="public/images/loadinglogo.png" alt="Taskforge" class="logo-image">
       </div>
       <div class="loading-content">
         <div class="loading-gear">
@@ -168,19 +168,9 @@ export class LoadingScreen {
       }
 
       .logo-image {
-        width: 280px;
+        width: 40px;
         height: auto;
         filter: drop-shadow(0 0 15px rgba(111, 214, 255, 0.4)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
-        animation: logoGlow 3s ease-in-out infinite;
-      }
-
-      @keyframes logoGlow {
-        0%, 100% { 
-          filter: drop-shadow(0 0 10px rgba(111, 214, 255, 0.3)) drop-shadow(0 0 5px rgba(255, 215, 0, 0.2)); 
-        }
-        50% { 
-          filter: drop-shadow(0 0 20px rgba(111, 214, 255, 0.6)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4)); 
-        }
       }
 
       .loading-content {

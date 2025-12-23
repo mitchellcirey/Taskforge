@@ -141,15 +141,11 @@ export class MainMenu {
       }
 
       .logo-image {
-        max-width: min(2000px, 140vw);
-        max-height: min(1000px, 72vh);
+        max-width: min(800px, 60vw);
+        max-height: min(400px, 33vh);
+        width: auto;
+        height: auto;
         filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
-        animation: logoFloat 4s ease-in-out infinite;
-      }
-
-      @keyframes logoFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
       }
 
       .logo-text {
@@ -294,8 +290,8 @@ export class MainMenu {
         }
 
         .logo-image {
-          max-width: min(1200px, 120vw);
-          max-height: min(600px, 60vh);
+          max-width: min(533px, 67vw);
+          max-height: min(267px, 30vh);
         }
 
         .logo-text {
