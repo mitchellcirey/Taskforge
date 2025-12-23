@@ -228,7 +228,7 @@ export class SceneManager {
   }
 
   spawnTrees(count) {
-    const attempts = count * 3; // Try more times to find valid positions
+    const attempts = count * 10; // Try more times since we're only looking for dirt tiles
     let spawned = 0;
 
     for (let i = 0; i < attempts && spawned < count; i++) {
@@ -236,20 +236,13 @@ export class SceneManager {
       const tileZ = Math.floor(Math.random() * this.tileGrid.height);
       const tile = this.tileGrid.getTile(tileX, tileZ);
 
-      if (tile && tile.walkable && !tile.occupied) {
-        // Prefer forest side (left side of map)
-        const normalizedX = tileX / this.tileGrid.width;
-        const normalizedZ = tileZ / this.tileGrid.height;
-        const diagonalValue = normalizedX + normalizedZ;
-        
-        // 70% chance to spawn on forest side, 30% on grass side
-        if (diagonalValue < 0.9 || (diagonalValue >= 0.9 && Math.random() < 0.3)) {
-          // Vary tree size between 0.7 and 1.3 scale
-          const sizeVariation = 0.7 + Math.random() * 0.6;
-          const tree = new Tree(this.scene, this.tileGrid, tileX, tileZ, sizeVariation);
-          this.worldObjects.push(tree);
-          spawned++;
-        }
+      // Only spawn trees on dirt tiles
+      if (tile && tile.walkable && !tile.occupied && tile.type === 'dirt') {
+        // Vary tree size between 0.7 and 1.3 scale
+        const sizeVariation = 0.7 + Math.random() * 0.6;
+        const tree = new Tree(this.scene, this.tileGrid, tileX, tileZ, sizeVariation);
+        this.worldObjects.push(tree);
+        spawned++;
       }
     }
   }

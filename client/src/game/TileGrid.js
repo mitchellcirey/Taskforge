@@ -12,8 +12,34 @@ export class TileGrid {
     this.chunks = new Map(); // Map of chunk keys to chunk data
     this.gridHelper = null;
     
+    // Generate random dirt patch centers for cohesive patches
+    this.dirtPatchCenters = this.generateDirtPatchCenters();
+    
     // Initialize chunks for the initial grid
     this.initializeChunks();
+  }
+
+  // Generate random dirt patch centers across the map
+  generateDirtPatchCenters() {
+    const patches = [];
+    const numPatches = Math.floor((this.width * this.height) / 400); // ~1 patch per 400 tiles
+    
+    for (let i = 0; i < numPatches; i++) {
+      // Random position across the map
+      const centerX = Math.random() * this.width;
+      const centerZ = Math.random() * this.height;
+      
+      // Random patch size (radius in tiles) - varies from 3 to 12 tiles
+      const radius = 3 + Math.random() * 9;
+      
+      patches.push({
+        x: centerX,
+        z: centerZ,
+        radius: radius
+      });
+    }
+    
+    return patches;
   }
 
   // Convert tile coordinates to chunk coordinates
@@ -82,24 +108,60 @@ export class TileGrid {
 
   // Create a single tile with default properties
   createTile(tileX, tileZ) {
-    // Generate random biome patches using noise
-    // Use multiple octaves for more interesting patterns
-    const noise1 = this.noise(tileX, tileZ, 0.05);
-    const noise2 = this.noise(tileX, tileZ, 0.15);
-    const noise3 = this.noise(tileX, tileZ, 0.3);
+    // Calculate distance from edges for sand placement
+    const normalizedX = tileX / this.width;
+    const normalizedZ = tileZ / this.height;
+    const distFromEdgeX = Math.min(normalizedX, 1.0 - normalizedX);
+    const distFromEdgeZ = Math.min(normalizedZ, 1.0 - normalizedZ);
+    const distFromEdge = Math.min(distFromEdgeX, distFromEdgeZ);
     
-    // Combine noise values for more natural distribution
-    const combinedNoise = (noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2);
+    // Sand appears on edges (outer 15% of map)
+    const edgeThreshold = 0.15;
+    if (distFromEdge < edgeThreshold) {
+      return {
+        tileX: tileX,
+        tileZ: tileZ,
+        type: 'sand', // Sand on edges
+        content: null,
+        occupied: false,
+        walkable: true,
+        moveCost: 1,
+        worldX: (tileX - this.width / 2) * this.tileSize,
+        worldZ: (tileZ - this.height / 2) * this.tileSize
+      };
+    }
     
-    // Determine biome based on noise value
-    // Split into three roughly equal regions
-    let tileType = 'grass'; // Grassland (default)
-    if (combinedNoise < 0.33) {
-      tileType = 'sand'; // Sand biome
-    } else if (combinedNoise < 0.66) {
-      tileType = 'dirt'; // Dirt biome
-    } else {
-      tileType = 'grass'; // Grassland biome
+    // Check distance to nearest dirt patch center to create cohesive patches
+    // Use sharp boundaries like Autonauts (blocky, distinct regions)
+    let minDistance = Infinity;
+    let nearestPatch = null;
+    
+    for (const patch of this.dirtPatchCenters) {
+      const dx = tileX - patch.x;
+      const dz = tileZ - patch.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestPatch = patch;
+      }
+    }
+    
+    // Determine if this tile is within a dirt patch
+    // Use sharp boundaries - tile is either dirt or grass, minimal blending
+    let tileType = 'grass'; // Grassland (default - most common)
+    
+    if (nearestPatch && minDistance < nearestPatch.radius) {
+      // Sharp boundary - tile is dirt if within radius
+      // Add slight randomness only at the very edge for slight variation
+      const normalizedDistance = minDistance / nearestPatch.radius;
+      const edgeNoise = this.noise(tileX, tileZ, 0.3);
+      // Very tight threshold - mostly sharp, slight variation at edges
+      const edgeThreshold = 0.95 + edgeNoise * 0.05; // Varies from 0.95 to 1.0
+      
+      if (normalizedDistance < edgeThreshold) {
+        tileType = 'dirt'; // Dirt biome patch
+      }
     }
 
     return {

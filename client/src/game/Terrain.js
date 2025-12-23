@@ -131,63 +131,86 @@ export class Terrain {
         float tileX = (worldPos.x / uTileSize) + (uWidth * 0.5);
         float tileZ = (worldPos.y / uTileSize) + (uHeight * 0.5);
         
-        // Use same noise function as TileGrid for consistency
-        // Sample at slightly offset positions for smoother blending
-        float noise1 = fbm(vec2(tileX, tileZ) * 0.05, 3);
-        float noise2 = fbm(vec2(tileX, tileZ) * 0.15, 3);
-        float noise3 = fbm(vec2(tileX, tileZ) * 0.3, 3);
+        // Calculate distance from edges for sand placement
+        float normalizedX = tileX / uWidth;
+        float normalizedZ = tileZ / uHeight;
+        float distFromEdgeX = min(normalizedX, 1.0 - normalizedX);
+        float distFromEdgeZ = min(normalizedZ, 1.0 - normalizedZ);
+        float distFromEdge = min(distFromEdgeX, distFromEdgeZ);
         
-        float combinedNoise = noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2;
+        // Sand appears on edges (outer 15% of map)
+        float edgeThreshold = 0.15;
+        float sandWeight = 1.0 - smoothstep(0.0, edgeThreshold, distFromEdge);
         
-        // Use smoothstep for natural transitions between biomes
-        // Sand: 0.0 - 0.33, Dirt: 0.33 - 0.66, Grass: 0.66 - 1.0
-        float blendWidth = 0.15; // Blending zone width
+        // For interior areas, create cohesive dirt patches with sharp boundaries (Autonauts style)
+        // Use very low frequency noise to create large, distinct blob-like regions
+        // This approximates the distance-based patch centers from TileGrid
+        float regionNoise = fbm(vec2(tileX, tileZ) * 0.012, 3);
         
-        float sandWeight = 1.0 - smoothstep(0.0, 0.33 + blendWidth, combinedNoise);
-        float dirtWeight = smoothstep(0.33 - blendWidth, 0.33, combinedNoise) * (1.0 - smoothstep(0.33, 0.66 + blendWidth, combinedNoise));
-        float grassWeight = smoothstep(0.66 - blendWidth, 0.66, combinedNoise);
+        // Use slightly higher frequency to add variation to patch sizes
+        float sizeVariation = fbm(vec2(tileX, tileZ) * 0.06, 3);
         
-        // Add additional smoothing by sampling nearby positions
-        vec2 offset1 = vec2(0.3, 0.3);
-        vec2 offset2 = vec2(-0.3, 0.3);
-        vec2 offset3 = vec2(0.3, -0.3);
-        vec2 offset4 = vec2(-0.3, -0.3);
+        // Create cohesive patches with sharp boundaries (Autonauts style)
+        // Lower regionNoise values create dirt patches
+        // Size variation affects the threshold to create different patch sizes
+        float patchThreshold = 0.25 + sizeVariation * 0.15; // Varies from 0.25 to 0.4
         
-        float avgNoise = combinedNoise;
+        // Very sharp boundaries - minimal blend zone for blocky appearance
+        float blendWidth = 0.01; // Very small blend zone for sharp, blocky edges
+        float patchFactor = 1.0 - smoothstep(patchThreshold - blendWidth, patchThreshold + blendWidth, regionNoise);
         
-        vec2 samplePos1 = vec2(tileX, tileZ) + offset1 * 0.5;
-        float sNoise1_1 = fbm(samplePos1 * 0.05, 3);
-        float sNoise1_2 = fbm(samplePos1 * 0.15, 3);
-        float sNoise1_3 = fbm(samplePos1 * 0.3, 3);
-        avgNoise += (sNoise1_1 * 0.5 + sNoise1_2 * 0.3 + sNoise1_3 * 0.2);
+        // Sharpen the result - push towards 0 or 1 for distinct boundaries
+        // Use step with slight threshold adjustment for very sharp edges
+        patchFactor = step(0.3, patchFactor); // Sharp threshold - mostly binary but allows slight variation
         
-        vec2 samplePos2 = vec2(tileX, tileZ) + offset2 * 0.5;
-        float sNoise2_1 = fbm(samplePos2 * 0.05, 3);
-        float sNoise2_2 = fbm(samplePos2 * 0.15, 3);
-        float sNoise2_3 = fbm(samplePos2 * 0.3, 3);
-        avgNoise += (sNoise2_1 * 0.5 + sNoise2_2 * 0.3 + sNoise2_3 * 0.2);
+        // Calculate dirt and grass weights
+        float dirtWeight = (1.0 - sandWeight) * patchFactor;
+        float grassWeight = (1.0 - sandWeight) * (1.0 - patchFactor);
         
-        vec2 samplePos3 = vec2(tileX, tileZ) + offset3 * 0.5;
-        float sNoise3_1 = fbm(samplePos3 * 0.05, 3);
-        float sNoise3_2 = fbm(samplePos3 * 0.15, 3);
-        float sNoise3_3 = fbm(samplePos3 * 0.3, 3);
-        avgNoise += (sNoise3_1 * 0.5 + sNoise3_2 * 0.3 + sNoise3_3 * 0.2);
+        // Minimal smoothing only for sand edges - keep patch boundaries sharp (Autonauts style)
+        vec2 offset1 = vec2(0.2, 0.2);
+        vec2 offset2 = vec2(-0.2, 0.2);
+        vec2 offset3 = vec2(0.2, -0.2);
+        vec2 offset4 = vec2(-0.2, -0.2);
         
-        vec2 samplePos4 = vec2(tileX, tileZ) + offset4 * 0.5;
-        float sNoise4_1 = fbm(samplePos4 * 0.05, 3);
-        float sNoise4_2 = fbm(samplePos4 * 0.15, 3);
-        float sNoise4_3 = fbm(samplePos4 * 0.3, 3);
-        avgNoise += (sNoise4_1 * 0.5 + sNoise4_2 * 0.3 + sNoise4_3 * 0.2);
+        float avgDistFromEdge = distFromEdge;
         
-        avgNoise /= 5.0;
+        vec2 samplePos1 = vec2(tileX, tileZ) + offset1 * 0.3;
+        float sNormX1 = samplePos1.x / uWidth;
+        float sNormZ1 = samplePos1.y / uHeight;
+        float sDist1 = min(min(sNormX1, 1.0 - sNormX1), min(sNormZ1, 1.0 - sNormZ1));
+        avgDistFromEdge += sDist1;
         
-        // Blend between center and average for smoother transitions
-        combinedNoise = mix(combinedNoise, avgNoise, 0.4);
+        vec2 samplePos2 = vec2(tileX, tileZ) + offset2 * 0.3;
+        float sNormX2 = samplePos2.x / uWidth;
+        float sNormZ2 = samplePos2.y / uHeight;
+        float sDist2 = min(min(sNormX2, 1.0 - sNormX2), min(sNormZ2, 1.0 - sNormZ2));
+        avgDistFromEdge += sDist2;
         
-        // Recalculate weights with smoothed noise
-        sandWeight = 1.0 - smoothstep(0.0, 0.33 + blendWidth, combinedNoise);
-        dirtWeight = smoothstep(0.33 - blendWidth, 0.33, combinedNoise) * (1.0 - smoothstep(0.33, 0.66 + blendWidth, combinedNoise));
-        grassWeight = smoothstep(0.66 - blendWidth, 0.66, combinedNoise);
+        vec2 samplePos3 = vec2(tileX, tileZ) + offset3 * 0.3;
+        float sNormX3 = samplePos3.x / uWidth;
+        float sNormZ3 = samplePos3.y / uHeight;
+        float sDist3 = min(min(sNormX3, 1.0 - sNormX3), min(sNormZ3, 1.0 - sNormZ3));
+        avgDistFromEdge += sDist3;
+        
+        vec2 samplePos4 = vec2(tileX, tileZ) + offset4 * 0.3;
+        float sNormX4 = samplePos4.x / uWidth;
+        float sNormZ4 = samplePos4.y / uHeight;
+        float sDist4 = min(min(sNormX4, 1.0 - sNormX4), min(sNormZ4, 1.0 - sNormZ4));
+        avgDistFromEdge += sDist4;
+        
+        avgDistFromEdge /= 5.0;
+        
+        // Only smooth edge distance for sand boundaries
+        distFromEdge = mix(distFromEdge, avgDistFromEdge, 0.2);
+        
+        // Recalculate sand weight with smoothed edge distance
+        sandWeight = 1.0 - smoothstep(0.0, edgeThreshold, distFromEdge);
+        
+        // Keep patch boundaries sharp - no additional smoothing for dirt/grass
+        float interiorFactor = 1.0 - sandWeight;
+        dirtWeight = interiorFactor * patchFactor;
+        grassWeight = interiorFactor * (1.0 - patchFactor);
         
         // Normalize weights to sum to 1.0
         float totalWeight = sandWeight + dirtWeight + grassWeight;
