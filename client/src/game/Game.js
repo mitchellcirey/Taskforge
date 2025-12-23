@@ -136,6 +136,8 @@ export class Game {
 
     // Create in-game settings menu (will be updated when game starts)
     this.settingsMenu = new SettingsMenu(this.container, null, this.audioManager);
+    // Apply audio settings after sounds are loaded
+    this.settingsMenu.applyAudioSettings();
     this.settingsMenu.onClose(() => {
       // Return to appropriate menu when settings is closed
       if (this.gameState.getState() === 'paused') {

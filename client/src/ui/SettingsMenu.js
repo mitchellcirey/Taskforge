@@ -693,23 +693,31 @@ export class SettingsMenu {
       this.audioManager.setMusicVolume(this.musicVolume);
       this.audioManager.setSFXVolume(this.sfxVolume);
       
-      // Apply mute states
-      if (this.audioManager.currentMusic) {
-        this.audioManager.currentMusic.muted = this.musicMuted;
+      // Store mute states in AudioManager for reference when new sounds play
+      if (this.audioManager) {
+        this.audioManager.musicMuted = this.musicMuted;
+        this.audioManager.sfxMuted = this.sfxMuted;
       }
       
-      // Apply SFX mute to all non-music sounds
+      // Apply mute states to all existing sounds
       if (this.audioManager.sounds) {
         this.audioManager.sounds.forEach((sound, name) => {
-          // Check if it's a music track (we can identify by checking if it loops or by name patterns)
-          // For now, only mute non-music sounds for SFX mute
-          // Music tracks are handled separately above
+          // Check if it's a music track
           const isMusic = name === 'main_menu' || 
                          this.audioManager.gameplayMusicTracks?.includes(name);
-          if (!isMusic) {
+          if (isMusic) {
+            // Apply music mute state
+            sound.muted = this.musicMuted;
+          } else {
+            // Apply SFX mute state
             sound.muted = this.sfxMuted;
           }
         });
+      }
+      
+      // Also apply to current music if it exists
+      if (this.audioManager.currentMusic) {
+        this.audioManager.currentMusic.muted = this.musicMuted;
       }
     }
     
