@@ -517,6 +517,15 @@ export class Player {
 
   // Move to tile coordinates (strict tile-based movement)
   moveTo(tileX, tileZ) {
+    // Check if target is within map boundaries
+    if (tileX < 0 || tileX >= this.tileGrid.width || tileZ < 0 || tileZ >= this.tileGrid.height) {
+      // Hide destination indicator if out of bounds
+      if (this.destinationIndicator) {
+        this.destinationIndicator.hide();
+      }
+      return false;
+    }
+    
     const targetTile = this.tileGrid.getTile(tileX, tileZ);
     if (!targetTile || !targetTile.walkable) {
       // Hide destination indicator if invalid target

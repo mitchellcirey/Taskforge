@@ -32,9 +32,13 @@ export class InputManager {
     const intersectionPoint = new THREE.Vector3();
     this.raycaster.ray.intersectPlane(plane, intersectionPoint);
 
-    // Move player to clicked position
-    if (this.player) {
-      this.player.moveTo(intersectionPoint.x, intersectionPoint.z);
+    // Check if click is within map boundaries before moving
+    const { tileX, tileZ } = this.tileGrid.worldToTile(intersectionPoint.x, intersectionPoint.z);
+    if (tileX >= 0 && tileX < this.tileGrid.width && tileZ >= 0 && tileZ < this.tileGrid.height) {
+      // Move player to clicked position (only if within bounds)
+      if (this.player) {
+        this.player.moveTo(intersectionPoint.x, intersectionPoint.z);
+      }
     }
   }
 
