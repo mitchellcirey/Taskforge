@@ -3,6 +3,7 @@ import { LoadingScreen } from '../ui/LoadingScreen.js';
 import { MainMenu } from '../ui/MainMenu.js';
 import { PauseMenu } from '../ui/PauseMenu.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
+import { CreditsMenu } from '../ui/CreditsMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
 import { GameState } from './GameState.js';
@@ -16,6 +17,7 @@ export class Game {
     this.mainMenu = null;
     this.pauseMenu = null;
     this.settingsMenu = null;
+    this.creditsMenu = null;
     this.adminMenu = null;
     this.versionWatermark = null;
     this.gameState = new GameState();
@@ -96,11 +98,22 @@ export class Game {
       }
     });
     this.mainMenu.onCredits(() => {
-      // Placeholder for credits
-      console.log('Credits clicked');
-      // TODO: Implement credits/about screen
+      // Show credits menu and hide main menu
+      this.mainMenu.hide();
+      if (this.creditsMenu) {
+        this.creditsMenu.show();
+      }
     });
     this.mainMenu.show();
+
+    // Create credits menu
+    this.creditsMenu = new CreditsMenu(this.container);
+    this.creditsMenu.onClose(() => {
+      // Return to main menu when credits is closed
+      if (this.gameState.getState() === GameState.MENU) {
+        this.mainMenu.show();
+      }
+    });
 
     // Create settings menu (basic version, will be updated when game starts)
     this.settingsMenu = new SettingsMenu(this.container, null);

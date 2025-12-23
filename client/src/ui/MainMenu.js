@@ -22,40 +22,32 @@ export class MainMenu {
         <div class="menu-logo">
           <img src="public/images/taskforge_logo.png" alt="Taskforge" class="logo-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
           <h1 class="logo-text" style="display: none;">Taskforge</h1>
-          <p class="logo-subtitle">Automation</p>
         </div>
         <div class="menu-buttons-container">
           <div class="menu-button-group primary-actions">
             <button class="menu-button primary" id="play-button">
-              <span class="button-icon">▶</span>
               <span class="button-text">Play</span>
             </button>
             <button class="menu-button primary" id="load-game-button">
-              <span class="button-icon">📂</span>
               <span class="button-text">Load Game</span>
             </button>
             <button class="menu-button primary" id="multiplayer-button">
-              <span class="button-icon">🌐</span>
               <span class="button-text">Multiplayer</span>
             </button>
           </div>
           <div class="menu-button-group secondary-actions">
             <button class="menu-button secondary" id="achievements-button">
-              <span class="button-icon">🏆</span>
               <span class="button-text">Achievements</span>
             </button>
             <button class="menu-button secondary" id="settings-button">
-              <span class="button-icon">⚙️</span>
               <span class="button-text">Settings</span>
             </button>
             <button class="menu-button secondary" id="credits-button">
-              <span class="button-icon">ℹ️</span>
               <span class="button-text">Credits</span>
             </button>
           </div>
           <div class="menu-button-group exit-actions">
             <button class="menu-button exit" id="quit-button">
-              <span class="button-icon">✕</span>
               <span class="button-text">Quit</span>
             </button>
           </div>
@@ -88,15 +80,14 @@ export class MainMenu {
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 25%, #2d2d2d 50%, #1a1a1a 75%, #0a0a0a 100%);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
+        background: linear-gradient(180deg, #87CEEB 0%, #B0E0E6 50%, #87CEEB 100%);
+        background-size: 100% 200%;
+        animation: skyShift 20s ease infinite;
       }
 
-      @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+      @keyframes skyShift {
+        0%, 100% { background-position: 0% 0%; }
+        50% { background-position: 0% 100%; }
       }
 
       .menu-background::before {
@@ -106,13 +97,22 @@ export class MainMenu {
         left: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(circle at 50% 50%, rgba(111, 214, 255, 0.05) 0%, transparent 70%);
-        animation: pulse 4s ease-in-out infinite;
+        background: 
+          radial-gradient(circle at 20% 30%, rgba(135, 206, 235, 0.3) 0%, transparent 50%),
+          radial-gradient(circle at 80% 70%, rgba(176, 224, 230, 0.3) 0%, transparent 50%),
+          repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(255, 255, 255, 0.03) 2px,
+            rgba(255, 255, 255, 0.03) 4px
+          );
+        animation: cloudDrift 30s ease-in-out infinite;
       }
 
-      @keyframes pulse {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 0.8; }
+      @keyframes cloudDrift {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(20px); }
       }
 
       .menu-content {
@@ -129,7 +129,7 @@ export class MainMenu {
       }
 
       .menu-logo {
-        margin-bottom: 80px;
+        margin-bottom: 60px;
         animation: fadeInDown 0.8s ease-out;
       }
 
@@ -145,45 +145,34 @@ export class MainMenu {
       }
 
       .logo-image {
-        max-width: 450px;
-        max-height: 220px;
-        margin-bottom: 20px;
-        filter: drop-shadow(0 0 30px rgba(111, 214, 255, 0.4));
-        animation: logoGlow 3s ease-in-out infinite;
+        max-width: 500px;
+        max-height: 250px;
+        filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
+        animation: logoFloat 4s ease-in-out infinite;
       }
 
-      @keyframes logoGlow {
-        0%, 100% { filter: drop-shadow(0 0 30px rgba(111, 214, 255, 0.4)); }
-        50% { filter: drop-shadow(0 0 50px rgba(111, 214, 255, 0.7)); }
+      @keyframes logoFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
       }
 
       .logo-text {
-        color: #6FD6FF;
+        color: #2c3e50;
         font-size: 72px;
-        margin: 0 0 15px 0;
-        text-shadow: 0 0 40px rgba(111, 214, 255, 0.8), 0 0 80px rgba(111, 214, 255, 0.4);
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         font-family: 'Arial', sans-serif;
         font-weight: bold;
         letter-spacing: 4px;
       }
 
-      .logo-subtitle {
-        color: #6FD6FF;
-        font-size: 36px;
-        margin: 0;
-        text-shadow: 0 0 25px rgba(111, 214, 255, 0.6), 0 0 50px rgba(111, 214, 255, 0.3);
-        font-family: 'Arial', sans-serif;
-        letter-spacing: 2px;
-        opacity: 0.9;
-      }
-
       .menu-buttons-container {
         display: flex;
         flex-direction: column;
-        gap: 30px;
+        gap: 16px;
         align-items: center;
         width: 100%;
-        max-width: 600px;
+        max-width: 320px;
         animation: fadeInUp 1s ease-out 0.3s both;
       }
 
@@ -201,42 +190,41 @@ export class MainMenu {
       .menu-button-group {
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 12px;
         width: 100%;
         align-items: center;
       }
 
       .menu-button-group.primary-actions {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .menu-button-group.secondary-actions {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .menu-button-group.exit-actions {
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 1px solid rgba(111, 214, 255, 0.2);
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 2px solid rgba(44, 62, 80, 0.2);
       }
 
       .menu-button {
         position: relative;
-        background: rgba(26, 26, 26, 0.85);
-        border: 2px solid #6FD6FF;
-        border-radius: 10px;
-        color: #6FD6FF;
-        font-size: 22px;
-        padding: 18px 50px;
-        min-width: 280px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 3px solid #34495e;
+        border-radius: 8px;
+        color: #2c3e50;
+        font-size: 20px;
+        padding: 14px 40px;
+        width: 100%;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
         font-family: 'Arial', sans-serif;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(111, 214, 255, 0.1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        text-transform: uppercase;
+        letter-spacing: 1px;
         overflow: hidden;
       }
 
@@ -247,8 +235,8 @@ export class MainMenu {
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(111, 214, 255, 0.2), transparent);
-        transition: left 0.5s ease;
+        background: linear-gradient(90deg, transparent, rgba(52, 73, 94, 0.1), transparent);
+        transition: left 0.4s ease;
       }
 
       .menu-button:hover::before {
@@ -256,72 +244,47 @@ export class MainMenu {
       }
 
       .menu-button:hover {
-        background: rgba(111, 214, 255, 0.15);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 30px rgba(111, 214, 255, 0.6);
-        transform: translateY(-3px) scale(1.02);
-        border-color: #8FE5FF;
+        background: rgba(255, 255, 255, 1);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        transform: translateY(-2px);
+        border-color: #2c3e50;
       }
 
       .menu-button:active {
-        transform: translateY(-1px) scale(1.01);
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), 0 0 20px rgba(111, 214, 255, 0.4);
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       }
 
       .menu-button.primary {
-        font-size: 24px;
-        padding: 20px 55px;
-        min-width: 300px;
+        font-size: 22px;
+        padding: 16px 40px;
         border-width: 3px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5), 0 0 25px rgba(111, 214, 255, 0.15);
-      }
-
-      .menu-button.primary:hover {
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 40px rgba(111, 214, 255, 0.7);
+        background: rgba(255, 255, 255, 0.98);
       }
 
       .menu-button.secondary {
-        font-size: 20px;
-        padding: 15px 45px;
-        min-width: 260px;
-        opacity: 0.95;
+        font-size: 18px;
+        padding: 12px 40px;
+        background: rgba(255, 255, 255, 0.9);
       }
 
       .menu-button.exit {
-        font-size: 18px;
-        padding: 12px 40px;
-        min-width: 220px;
-        opacity: 0.9;
-        border-color: rgba(111, 214, 255, 0.6);
+        font-size: 16px;
+        padding: 10px 40px;
+        background: rgba(255, 255, 255, 0.85);
+        border-color: rgba(231, 76, 60, 0.6);
+        color: #c0392b;
       }
 
       .menu-button.exit:hover {
-        background: rgba(255, 80, 80, 0.15);
-        border-color: rgba(255, 120, 120, 0.8);
-        color: #ff8888;
-      }
-
-      .button-icon {
-        font-size: 1.2em;
-        filter: drop-shadow(0 0 8px rgba(111, 214, 255, 0.6));
-        transition: transform 0.3s ease;
-      }
-
-      .menu-button:hover .button-icon {
-        transform: scale(1.2) rotate(5deg);
-      }
-
-      .menu-button.exit:hover .button-icon {
-        transform: scale(1.2) rotate(-5deg);
+        background: rgba(231, 76, 60, 0.1);
+        border-color: #e74c3c;
+        color: #e74c3c;
       }
 
       .button-text {
-        text-shadow: 0 0 12px rgba(111, 214, 255, 0.6);
-        font-weight: 500;
-        letter-spacing: 1px;
-      }
-
-      .menu-button.exit .button-text {
-        text-shadow: 0 0 10px rgba(255, 120, 120, 0.5);
+        position: relative;
+        z-index: 1;
       }
     `;
     document.head.appendChild(style);
