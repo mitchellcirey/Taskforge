@@ -18,6 +18,7 @@ export class AdminMenu {
     this.scene = null;
     this.tileGrid = null;
     this.cancelButton = null;
+    this.timeUpdateInterval = null;
     this.create();
   }
 
@@ -34,6 +35,21 @@ export class AdminMenu {
               <input type="checkbox" id="admin-bypass-toggle" ${this.adminMode ? 'checked' : ''}>
               <span class="checkbox-label">Bypass Build/Craft Requirements</span>
             </label>
+          </div>
+          <div class="admin-option time-control">
+            <div class="time-control-header">
+              <span class="admin-label">Game Time</span>
+              <span class="game-time-clock" id="game-time-clock">Day 00:00</span>
+            </div>
+            <div class="time-slider-container">
+              <input type="range" class="time-slider" id="time-slider" min="0" max="100" value="25" step="0.1">
+              <div class="time-slider-labels">
+                <span>Dawn</span>
+                <span>Noon</span>
+                <span>Dusk</span>
+                <span>Midnight</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="admin-tabs">
@@ -156,6 +172,83 @@ export class AdminMenu {
 
       .admin-option {
         width: 100%;
+      }
+
+      .admin-option.time-control {
+        padding: 15px;
+        background: rgba(52, 73, 94, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(52, 73, 94, 0.2);
+      }
+
+      .time-control-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .game-time-clock {
+        font-size: 18px;
+        font-weight: 600;
+        color: #34495e;
+        font-family: 'Courier New', monospace;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(52, 73, 94, 0.3);
+      }
+
+      .time-slider-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .time-slider {
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(to right, 
+          #FF6B47 0%, 
+          #87CEEB 25%, 
+          #87CEEB 50%, 
+          #FF6B47 75%, 
+          #0A0E27 100%);
+        outline: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+      }
+
+      .time-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #34495e;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .time-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #34495e;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .time-slider-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #666;
+        font-family: 'Arial', sans-serif;
+        font-weight: 500;
       }
 
       .admin-label {
@@ -391,6 +484,7 @@ export class AdminMenu {
     const closeButton = this.element.querySelector('#close-admin-button');
     const cancelPlacementButton = this.element.querySelector('#cancel-placement');
     const tabs = this.element.querySelectorAll('.admin-tab');
+    const timeSlider = this.element.querySelector('#time-slider');
 
     bypassToggle.addEventListener('change', (e) => {
       this.adminMode = e.target.checked;
@@ -411,6 +505,35 @@ export class AdminMenu {
         this.switchTab(tabName);
       });
     });
+
+    // Time slider
+    if (timeSlider) {
+      // Pause cycle when user starts dragging
+      timeSlider.addEventListener('mousedown', () => {
+        this.pauseCycle();
+      });
+      
+      timeSlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        // Convert slider value (0-100) to cycle time (0-1)
+        const cycleTime = value / 100;
+        this.setTimeOfDay(cycleTime);
+      });
+      
+      // Resume cycle when user releases slider
+      timeSlider.addEventListener('mouseup', () => {
+        this.resumeCycle();
+      });
+      
+      // Also handle touch events for mobile
+      timeSlider.addEventListener('touchstart', () => {
+        this.pauseCycle();
+      });
+      
+      timeSlider.addEventListener('touchend', () => {
+        this.resumeCycle();
+      });
+    }
   }
 
 
@@ -868,16 +991,82 @@ export class AdminMenu {
   }
 
 
+  pauseCycle() {
+    const gameInstance = window.gameInstance;
+    if (gameInstance && gameInstance.sceneManager) {
+      gameInstance.sceneManager.setDayNightCyclePaused(true);
+    }
+  }
+
+  resumeCycle() {
+    const gameInstance = window.gameInstance;
+    if (gameInstance && gameInstance.sceneManager) {
+      gameInstance.sceneManager.setDayNightCyclePaused(false);
+    }
+  }
+
+  setTimeOfDay(cycleTime) {
+    // Set time of day in DayNightCycle
+    const gameInstance = window.gameInstance;
+    if (gameInstance && gameInstance.sceneManager && gameInstance.sceneManager.dayNightCycle) {
+      gameInstance.sceneManager.dayNightCycle.setTimeOfDay(cycleTime);
+      this.updateTimeDisplay();
+    }
+  }
+
+  updateTimeDisplay() {
+    const gameInstance = window.gameInstance;
+    const clockElement = this.element.querySelector('#game-time-clock');
+    const timeSlider = this.element.querySelector('#time-slider');
+    
+    if (!gameInstance || !gameInstance.sceneManager || !gameInstance.sceneManager.dayNightCycle) {
+      if (clockElement) clockElement.textContent = 'N/A';
+      return;
+    }
+
+    const dayNightCycle = gameInstance.sceneManager.dayNightCycle;
+    const cycleTime = dayNightCycle.getCycleTime();
+    const formattedTime = dayNightCycle.getFormattedTime();
+    
+    if (clockElement) {
+      clockElement.textContent = formattedTime;
+    }
+    
+    if (timeSlider) {
+      // Update slider position (convert cycleTime 0-1 to slider 0-100)
+      timeSlider.value = cycleTime * 100;
+    }
+  }
+
+  startTimeUpdate() {
+    // Update time display every second
+    this.timeUpdateInterval = setInterval(() => {
+      if (this.element.classList.contains('visible')) {
+        this.updateTimeDisplay();
+      }
+    }, 1000);
+  }
+
+  stopTimeUpdate() {
+    if (this.timeUpdateInterval) {
+      clearInterval(this.timeUpdateInterval);
+      this.timeUpdateInterval = null;
+    }
+  }
+
   show() {
     if (!this.element.parentNode) {
       this.container.appendChild(this.element);
     }
     this.element.classList.add('visible');
     this.generateLists(); // Regenerate lists when shown
+    this.updateTimeDisplay(); // Update time display when shown
+    this.startTimeUpdate(); // Start updating time display
   }
 
   hide() {
     this.element.classList.remove('visible');
+    this.stopTimeUpdate(); // Stop updating time display
     if (this.placementMode) {
       this.exitPlacementMode();
     }
@@ -892,6 +1081,7 @@ export class AdminMenu {
   }
 
   destroy() {
+    this.stopTimeUpdate(); // Stop time updates
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }

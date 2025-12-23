@@ -19,6 +19,7 @@ import { TileHighlighter } from './TileHighlighter.js';
 import { DestinationIndicator } from './DestinationIndicator.js';
 import { CompassUI } from '../ui/CompassUI.js';
 import { Program } from './programming/Program.js';
+import { DayNightCycle } from './DayNightCycle.js';
 
 export class SceneManager {
   constructor(container, audioManager = null) {
@@ -43,6 +44,9 @@ export class SceneManager {
     this.tileHighlighter = null;
     this.destinationIndicator = null;
     this.compassUI = null;
+    this.dayNightCycle = null;
+    this.ambientLight = null;
+    this.directionalLight = null;
   }
 
   async init(progressCallback = null) {
@@ -60,7 +64,7 @@ export class SceneManager {
     // Step 1: Creating scene and camera (5%)
     await reportProgress('Initializing scene...', 5, 300);
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87CEEB); // Sky blue
+    // Background will be handled by DayNightCycle sky sphere
 
     // Create camera (perspective for 3D view)
     await reportProgress('Setting up camera...', 10, 300);
@@ -87,21 +91,25 @@ export class SceneManager {
 
     // Step 3: Setting up lighting (15%)
     await reportProgress('Setting up lighting...', 20, 300);
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    this.scene.add(this.ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(10, 20, 10);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 150; // Increased for larger world
-    directionalLight.shadow.camera.left = -50; // Increased for larger world
-    directionalLight.shadow.camera.right = 50;
-    directionalLight.shadow.camera.top = 50;
-    directionalLight.shadow.camera.bottom = -50;
-    this.scene.add(directionalLight);
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    this.directionalLight.position.set(10, 20, 10);
+    this.directionalLight.castShadow = true;
+    this.directionalLight.shadow.mapSize.width = 2048;
+    this.directionalLight.shadow.mapSize.height = 2048;
+    this.directionalLight.shadow.camera.near = 0.5;
+    this.directionalLight.shadow.camera.far = 150; // Increased for larger world
+    this.directionalLight.shadow.camera.left = -50; // Increased for larger world
+    this.directionalLight.shadow.camera.right = 50;
+    this.directionalLight.shadow.camera.top = 50;
+    this.directionalLight.shadow.camera.bottom = -50;
+    this.scene.add(this.directionalLight);
+
+    // Initialize day/night cycle system
+    await reportProgress('Setting up day/night cycle...', 22, 300);
+    this.dayNightCycle = new DayNightCycle(this.scene, this.ambientLight, this.directionalLight);
 
     // Step 4: Creating tile grid (20%)
     await reportProgress('Creating tile grid...', 30, 400);
@@ -588,6 +596,18 @@ export class SceneManager {
     }
   }
 
+  setDayNightCycleEnabled(enabled) {
+    if (this.dayNightCycle) {
+      this.dayNightCycle.setEnabled(enabled);
+    }
+  }
+
+  setDayNightCyclePaused(paused) {
+    if (this.dayNightCycle) {
+      this.dayNightCycle.setPaused(paused);
+    }
+  }
+
   update(deltaTime) {
     // Update player
     if (this.player) {
@@ -639,6 +659,11 @@ export class SceneManager {
           building.update(deltaTime);
         }
       });
+    }
+
+    // Update day/night cycle
+    if (this.dayNightCycle) {
+      this.dayNightCycle.update(deltaTime);
     }
 
     // Render scene

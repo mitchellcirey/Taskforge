@@ -5,6 +5,7 @@ export class SettingsMenu {
     this.audioManager = audioManager;
     this.element = null;
     this.gridVisible = true; // Default to visible
+    this.dayNightCycleEnabled = true; // Default to enabled
     this.musicVolume = 0.5;
     this.menuMusicVolume = 0.5;
     this.sfxVolume = 0.7;
@@ -24,16 +25,22 @@ export class SettingsMenu {
       if (saved !== null) {
         this.gridVisible = saved === 'true';
       }
+      
+      const savedDayNight = localStorage.getItem('taskforge_dayNightCycleEnabled');
+      if (savedDayNight !== null) {
+        this.dayNightCycleEnabled = savedDayNight === 'true';
+      }
     } catch (error) {
-      console.warn('Failed to load grid visibility setting:', error);
+      console.warn('Failed to load settings:', error);
     }
   }
 
   saveSettings() {
     try {
       localStorage.setItem('taskforge_gridVisible', this.gridVisible.toString());
+      localStorage.setItem('taskforge_dayNightCycleEnabled', this.dayNightCycleEnabled.toString());
     } catch (error) {
-      console.warn('Failed to save grid visibility setting:', error);
+      console.warn('Failed to save settings:', error);
     }
   }
 
@@ -106,6 +113,12 @@ export class SettingsMenu {
                 <span class="settings-label">Show Grid</span>
                 <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
                   ${this.gridVisible ? 'On' : 'Off'}
+                </button>
+              </div>
+              <div class="settings-option">
+                <span class="settings-label">Day/Night Cycle</span>
+                <button class="grid-toggle-button ${this.dayNightCycleEnabled ? 'on' : 'off'}" id="daynight-toggle">
+                  ${this.dayNightCycleEnabled ? 'On' : 'Off'}
                 </button>
               </div>
               ` : `
@@ -557,6 +570,7 @@ export class SettingsMenu {
 
   setupEventListeners() {
     const gridToggle = this.element.querySelector('#grid-toggle');
+    const dayNightToggle = this.element.querySelector('#daynight-toggle');
     const closeButton = this.element.querySelector('#close-settings-button');
     const tabButtons = this.element.querySelectorAll('.settings-tab');
     const sfxVolumeSlider = this.element.querySelector('#sfx-volume-slider');
@@ -580,6 +594,16 @@ export class SettingsMenu {
         this.gridVisible = !this.gridVisible;
         this.updateToggleButton();
         this.updateGridVisibility();
+        this.saveSettings();
+      });
+    }
+
+    // Day/Night Cycle toggle
+    if (dayNightToggle) {
+      dayNightToggle.addEventListener('click', () => {
+        this.dayNightCycleEnabled = !this.dayNightCycleEnabled;
+        this.updateDayNightToggleButton();
+        this.updateDayNightCycle();
         this.saveSettings();
       });
     }
@@ -680,6 +704,14 @@ export class SettingsMenu {
     }
   }
 
+  updateDayNightToggleButton() {
+    const dayNightToggle = this.element.querySelector('#daynight-toggle');
+    if (dayNightToggle) {
+      dayNightToggle.textContent = this.dayNightCycleEnabled ? 'On' : 'Off';
+      dayNightToggle.className = `grid-toggle-button ${this.dayNightCycleEnabled ? 'on' : 'off'}`;
+    }
+  }
+
   setTileGrid(tileGrid) {
     this.tileGrid = tileGrid;
     // Update the UI if settings menu is already created
@@ -693,6 +725,12 @@ export class SettingsMenu {
               ${this.gridVisible ? 'On' : 'Off'}
             </button>
           </div>
+          <div class="settings-option">
+            <span class="settings-label">Day/Night Cycle</span>
+            <button class="grid-toggle-button ${this.dayNightCycleEnabled ? 'on' : 'off'}" id="daynight-toggle">
+              ${this.dayNightCycleEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
         `;
         const gridToggle = this.element.querySelector('#grid-toggle');
         if (gridToggle) {
@@ -703,10 +741,20 @@ export class SettingsMenu {
             this.saveSettings();
           });
         }
+        const dayNightToggle = this.element.querySelector('#daynight-toggle');
+        if (dayNightToggle) {
+          dayNightToggle.addEventListener('click', () => {
+            this.dayNightCycleEnabled = !this.dayNightCycleEnabled;
+            this.updateDayNightToggleButton();
+            this.updateDayNightCycle();
+            this.saveSettings();
+          });
+        }
       }
     }
-    // Apply the saved setting to the grid immediately
+    // Apply the saved settings immediately
     this.updateGridVisibility();
+    this.updateDayNightCycle();
   }
 
   updateGridVisibility() {
@@ -719,6 +767,13 @@ export class SettingsMenu {
     return this.gridVisible;
   }
 
+  updateDayNightCycle() {
+    // Update day/night cycle setting in SceneManager
+    if (window.gameInstance && window.gameInstance.sceneManager) {
+      window.gameInstance.sceneManager.setDayNightCycleEnabled(this.dayNightCycleEnabled);
+    }
+  }
+
   show() {
     if (!this.element.parentNode) {
       this.container.appendChild(this.element);
@@ -726,10 +781,12 @@ export class SettingsMenu {
     // Reload settings in case they were changed elsewhere
     this.loadSettings();
     this.loadAudioSettings();
-    // Update toggle button to reflect current state
+    // Update toggle buttons to reflect current state
     this.updateToggleButton();
-    // Apply the setting to the grid
+    this.updateDayNightToggleButton();
+    // Apply the settings
     this.updateGridVisibility();
+    this.updateDayNightCycle();
     // Apply audio settings
     this.applyAudioSettings();
     this.element.classList.add('visible');
