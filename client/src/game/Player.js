@@ -26,15 +26,52 @@ export class Player {
     this.create();
   }
 
+  loadCharacterColors() {
+    // Helper function to convert hex string to number
+    const hexToNumber = (hexString) => {
+      if (!hexString || typeof hexString !== 'string') return null;
+      // Remove # if present
+      const hex = hexString.replace('#', '');
+      return parseInt(hex, 16);
+    };
+
+    // Load colors from localStorage with defaults
+    let skinColor = 0xD2B48C; // Light brown/tan (default)
+    let hatColor = 0xFF69B4; // Bright pink (default)
+    let overallColor = 0x4169E1; // Blue (default)
+
+    try {
+      const savedSkinColor = localStorage.getItem('taskforge_characterSkinColor');
+      if (savedSkinColor) {
+        const parsed = hexToNumber(savedSkinColor);
+        if (parsed !== null) skinColor = parsed;
+      }
+
+      const savedHatColor = localStorage.getItem('taskforge_characterHatColor');
+      if (savedHatColor) {
+        const parsed = hexToNumber(savedHatColor);
+        if (parsed !== null) hatColor = parsed;
+      }
+
+      const savedOverallsColor = localStorage.getItem('taskforge_characterOverallsColor');
+      if (savedOverallsColor) {
+        const parsed = hexToNumber(savedOverallsColor);
+        if (parsed !== null) overallColor = parsed;
+      }
+    } catch (error) {
+      console.warn('Failed to load character colors:', error);
+    }
+
+    return { skinColor, hatColor, overallColor };
+  }
+
   create() {
     // Create a blocky character matching the design
     const characterGroup = new THREE.Group();
     
-    // Colors
-    const skinColor = 0xD2B48C; // Light brown/tan
-    const hatColor = 0xFF69B4; // Bright pink
-    const overallColor = 0x4169E1; // Blue
-    const shirtColor = 0x808080; // Grey
+    // Load character customization colors
+    const { skinColor, hatColor, overallColor } = this.loadCharacterColors();
+    const shirtColor = 0x808080; // Grey (not customizable)
     
     // Head (light brown cube)
     const headGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
@@ -183,6 +220,12 @@ export class Player {
     this.body = body; // Store body reference for bending animation
     this.head = head; // Store head reference for bending animation
     this.overalls = overalls; // Store overalls reference for bending animation
+    
+    // Store material references for potential dynamic updates
+    this.hatMaterial = hatMaterial;
+    this.overallMaterial = overallMaterial;
+    this.skinMaterial = headMaterial; // Head and body use same skin material
+    this.bodyMaterial = bodyMaterial;
     
     // Create hand item group (will hold the item the player is carrying)
     this.handItemGroup = new THREE.Group();
