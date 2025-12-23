@@ -215,6 +215,9 @@ export class Building extends WorldObject {
   createCampfire() {
     const campfireGroup = new THREE.Group();
     
+    // Scale factor: 2x larger
+    const scale = 2.0;
+    
     // Fire pit base - stones arranged in a circle
     const stoneColor = 0x696969; // Dim gray
     const stoneMaterial = new THREE.MeshStandardMaterial({
@@ -223,24 +226,24 @@ export class Building extends WorldObject {
       metalness: 0.1
     });
     
-    // Create 8 stones arranged in a circle
+    // Create 8 stones arranged in a circle (doubled size)
     const stoneCount = 8;
-    const pitRadius = 0.35;
+    const pitRadius = 0.35 * scale; // 0.7
     for (let i = 0; i < stoneCount; i++) {
       const angle = (i / stoneCount) * Math.PI * 2;
-      const stoneSize = 0.08 + Math.random() * 0.04; // Vary stone sizes
-      const stoneGeometry = new THREE.BoxGeometry(stoneSize, 0.12, stoneSize);
+      const stoneSize = (0.08 + Math.random() * 0.04) * scale; // Vary stone sizes
+      const stoneGeometry = new THREE.BoxGeometry(stoneSize, 0.12 * scale, stoneSize);
       const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
       const x = Math.cos(angle) * pitRadius;
       const z = Math.sin(angle) * pitRadius;
-      stone.position.set(x, 0.06, z);
+      stone.position.set(x, 0.06 * scale, z);
       stone.rotation.y = Math.random() * Math.PI * 2; // Random rotation
       stone.castShadow = true;
       stone.receiveShadow = true;
       campfireGroup.add(stone);
     }
     
-    // Logs arranged in the center (3-4 logs)
+    // Logs arranged in the center (doubled size)
     const logColor = 0x4A2C2A; // Dark brown
     const logMaterial = new THREE.MeshStandardMaterial({
       color: logColor,
@@ -250,17 +253,17 @@ export class Building extends WorldObject {
     
     const logCount = 4;
     const logPositions = [
-      { x: -0.1, z: 0, angle: 0 },
-      { x: 0.1, z: 0, angle: Math.PI / 2 },
-      { x: 0, z: -0.1, angle: Math.PI / 4 },
-      { x: 0, z: 0.1, angle: -Math.PI / 4 }
+      { x: -0.1 * scale, z: 0, angle: 0 },
+      { x: 0.1 * scale, z: 0, angle: Math.PI / 2 },
+      { x: 0, z: -0.1 * scale, angle: Math.PI / 4 },
+      { x: 0, z: 0.1 * scale, angle: -Math.PI / 4 }
     ];
     
     for (let i = 0; i < logCount; i++) {
-      const logGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.15, 8);
+      const logGeometry = new THREE.CylinderGeometry(0.03 * scale, 0.03 * scale, 0.15 * scale, 8);
       const log = new THREE.Mesh(logGeometry, logMaterial);
       const pos = logPositions[i];
-      log.position.set(pos.x, 0.075, pos.z);
+      log.position.set(pos.x, 0.075 * scale, pos.z);
       log.rotation.z = pos.angle;
       log.rotation.x = Math.PI / 2;
       log.castShadow = true;
@@ -268,20 +271,20 @@ export class Building extends WorldObject {
       campfireGroup.add(log);
     }
     
-    // Create animated flames (4-5 flame meshes)
+    // Create animated flames (doubled size, positioned higher for visible rising)
     this.flames = [];
     const flameCount = 5;
     const flameBasePositions = [
-      { x: -0.08, z: -0.05 },
-      { x: 0.08, z: -0.05 },
+      { x: -0.08 * scale, z: -0.05 * scale },
+      { x: 0.08 * scale, z: -0.05 * scale },
       { x: 0, z: 0 },
-      { x: -0.05, z: 0.08 },
-      { x: 0.05, z: 0.08 }
+      { x: -0.05 * scale, z: 0.08 * scale },
+      { x: 0.05 * scale, z: 0.08 * scale }
     ];
     
     for (let i = 0; i < flameCount; i++) {
-      // Create flame using a cone geometry
-      const flameGeometry = new THREE.ConeGeometry(0.04, 0.15, 8);
+      // Create flame using a cone geometry (doubled size)
+      const flameGeometry = new THREE.ConeGeometry(0.04 * scale, 0.15 * scale, 8);
       const flameMaterial = new THREE.MeshStandardMaterial({
         color: 0xFF6600, // Orange
         emissive: 0xFF4400,
@@ -292,13 +295,15 @@ export class Building extends WorldObject {
       
       const flame = new THREE.Mesh(flameGeometry, flameMaterial);
       const basePos = flameBasePositions[i] || { x: 0, z: 0 };
-      flame.position.set(basePos.x, 0.15, basePos.z);
+      // Start flames higher and make them rise more visibly
+      const baseY = 0.3 * scale; // Doubled from 0.15, now 0.6
+      flame.position.set(basePos.x, baseY, basePos.z);
       flame.castShadow = false; // Flames don't cast shadows
       flame.receiveShadow = false;
       
       // Store animation properties
       flame.userData = {
-        baseY: 0.15,
+        baseY: baseY,
         baseX: basePos.x,
         baseZ: basePos.z,
         phase: Math.random() * Math.PI * 2, // Random phase for variation
@@ -309,7 +314,7 @@ export class Building extends WorldObject {
       this.flames.push(flame);
     }
     
-    // Create smoke particle system
+    // Create smoke particle system (doubled size)
     const smokeParticleCount = 25;
     this.smokeGeometry = new THREE.BufferGeometry();
     const positions = new Float32Array(smokeParticleCount * 3);
@@ -317,24 +322,24 @@ export class Building extends WorldObject {
     const lifetimes = new Float32Array(smokeParticleCount);
     const sizes = new Float32Array(smokeParticleCount);
     
-    // Initialize particles
+    // Initialize particles (doubled positions and velocities)
     for (let i = 0; i < smokeParticleCount; i++) {
       const i3 = i * 3;
-      // Start at random positions near fire center
-      positions[i3] = (Math.random() - 0.5) * 0.2;
-      positions[i3 + 1] = 0.2 + Math.random() * 0.1;
-      positions[i3 + 2] = (Math.random() - 0.5) * 0.2;
+      // Start at random positions near fire center (doubled)
+      positions[i3] = (Math.random() - 0.5) * 0.2 * scale;
+      positions[i3 + 1] = (0.2 + Math.random() * 0.1) * scale;
+      positions[i3 + 2] = (Math.random() - 0.5) * 0.2 * scale;
       
-      // Random velocities (rising with slight drift)
-      velocities[i3] = (Math.random() - 0.5) * 0.02;
-      velocities[i3 + 1] = 0.3 + Math.random() * 0.2;
-      velocities[i3 + 2] = (Math.random() - 0.5) * 0.02;
+      // Random velocities (rising with slight drift, doubled)
+      velocities[i3] = (Math.random() - 0.5) * 0.02 * scale;
+      velocities[i3 + 1] = (0.3 + Math.random() * 0.2) * scale;
+      velocities[i3 + 2] = (Math.random() - 0.5) * 0.02 * scale;
       
       // Random lifetimes
       lifetimes[i] = Math.random();
       
-      // Random sizes
-      sizes[i] = 0.05 + Math.random() * 0.05;
+      // Random sizes (doubled)
+      sizes[i] = (0.05 + Math.random() * 0.05) * scale;
     }
     
     this.smokeGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -342,10 +347,10 @@ export class Building extends WorldObject {
     this.smokeGeometry.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
     this.smokeGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     
-    // Create smoke material
+    // Create smoke material (doubled size)
     this.smokeMaterial = new THREE.PointsMaterial({
       color: 0x888888,
-      size: 0.1,
+      size: 0.1 * scale,
       transparent: true,
       opacity: 0.6,
       sizeAttenuation: true,
@@ -355,9 +360,9 @@ export class Building extends WorldObject {
     this.smokeParticles = new THREE.Points(this.smokeGeometry, this.smokeMaterial);
     campfireGroup.add(this.smokeParticles);
     
-    // Add flickering point light for fire glow
-    this.fireLight = new THREE.PointLight(0xFF6600, 1.5, 5);
-    this.fireLight.position.set(0, 0.2, 0);
+    // Add flickering point light for fire glow (doubled range)
+    this.fireLight = new THREE.PointLight(0xFF6600, 1.5, 5 * scale);
+    this.fireLight.position.set(0, 0.2 * scale, 0);
     this.fireLight.castShadow = false; // Point lights can be expensive for shadows
     campfireGroup.add(this.fireLight);
     
@@ -687,13 +692,17 @@ export class Building extends WorldObject {
         const scaleVariation = 0.2 + 0.1 * Math.sin(this.animationTime * userData.speed + userData.phase);
         flame.scale.set(1 + scaleVariation, 1 + scaleVariation * 1.5, 1 + scaleVariation);
         
-        // Flicker position (slight movement)
+        // Flicker position (slight horizontal movement)
         const flickerX = (Math.random() - 0.5) * 0.02;
         const flickerZ = (Math.random() - 0.5) * 0.02;
-        const flickerY = 0.05 * Math.sin(this.animationTime * userData.speed * 0.5 + userData.phase);
+        // Make flames visibly rise - increased vertical movement
+        const riseAmount = 0.15; // Increased from 0.05 to make rising more visible
+        const flickerY = riseAmount * Math.sin(this.animationTime * userData.speed * 0.5 + userData.phase);
+        // Add a slight upward bias so flames are always rising slightly
+        const upwardBias = 0.05 * (1 + Math.sin(this.animationTime * userData.speed * 0.3 + userData.phase));
         flame.position.set(
           userData.baseX + flickerX,
-          userData.baseY + flickerY,
+          userData.baseY + flickerY + upwardBias,
           userData.baseZ + flickerZ
         );
         
@@ -711,7 +720,7 @@ export class Building extends WorldObject {
       const sizes = this.smokeGeometry.attributes.size;
       
       if (positions && velocities && lifetimes && sizes) {
-        const maxHeight = 3.0; // Max height before recycling
+        const maxHeight = 3.0 * 2.0; // Max height before recycling (doubled for 2x scale)
         
         for (let i = 0; i < positions.count; i++) {
           const i3 = i * 3;
