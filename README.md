@@ -2,11 +2,11 @@
 
 An Autonauts-style visual programming automation game built with **Three.js** and Electron.
 
-![Game Environment](client/public/images/game-screenshot.png)
+![Screenshot 1](client/public/images/readme/1.gif)
 
-![Character Customization](client/public/images/character-customization.png)
+![Screenshot 2](client/public/images/readme/2.gif)
 
-![Campfire Scene](client/public/images/campfire-scene.png)
+![Screenshot 3](client/public/images/readme/3.png)
 
 ## Setup
 
