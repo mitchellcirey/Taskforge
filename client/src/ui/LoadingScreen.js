@@ -156,9 +156,9 @@ export class LoadingScreen {
       }
 
       .logo-image {
-        width: 180px;
+        width: 280px;
         height: auto;
-        filter: drop-shadow(0 0 10px rgba(111, 214, 255, 0.3));
+        filter: drop-shadow(0 0 15px rgba(111, 214, 255, 0.4));
         animation: logoGlow 3s ease-in-out infinite;
       }
 

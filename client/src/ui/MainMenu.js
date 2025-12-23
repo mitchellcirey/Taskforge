@@ -19,7 +19,7 @@ export class MainMenu {
       <div class="menu-background"></div>
       <div class="menu-content">
         <div class="menu-logo">
-          <img src="public/images/taskforge_logo.png" alt="Taskforge" class="logo-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          <img src="public/images/mainmenulogo.png" alt="Taskforge" class="logo-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
           <h1 class="logo-text" style="display: none;">Taskforge</h1>
         </div>
         <div class="menu-buttons-container">
@@ -141,8 +141,8 @@ export class MainMenu {
       }
 
       .logo-image {
-        max-width: min(500px, 35vw);
-        max-height: min(250px, 18vh);
+        max-width: min(2000px, 140vw);
+        max-height: min(1000px, 72vh);
         filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
         animation: logoFloat 4s ease-in-out infinite;
       }
@@ -294,8 +294,8 @@ export class MainMenu {
         }
 
         .logo-image {
-          max-width: min(300px, 30vw);
-          max-height: min(150px, 15vh);
+          max-width: min(1200px, 120vw);
+          max-height: min(600px, 60vh);
         }
 
         .logo-text {
