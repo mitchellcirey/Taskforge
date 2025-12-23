@@ -86,6 +86,15 @@ export class InteractionManager {
       this.buildingManager.updatePreview(worldPos.x, worldPos.z);
     }
 
+    // Update admin placement preview if in placement mode
+    const gameInstance = window.gameInstance;
+    if (gameInstance && gameInstance.adminMenu && gameInstance.adminMenu.isPlacementMode()) {
+      const worldPos = this.getMouseWorldPosition();
+      if (worldPos && !isNaN(worldPos.x) && !isNaN(worldPos.z)) {
+        gameInstance.adminMenu.updatePreview(worldPos.x, worldPos.z);
+      }
+    }
+
     // Check for hover on objects and buildings
     this.raycaster.setFromCamera(this.mouse, this.camera);
     
@@ -245,6 +254,91 @@ export class InteractionManager {
   }
 
   async onClick(event) {
+    // Check if in admin placement mode (highest priority)
+    const gameInstance = window.gameInstance;
+    if (gameInstance && gameInstance.adminMenu && gameInstance.adminMenu.isPlacementMode()) {
+      console.log('Admin placement mode click detected');
+      
+      // Get world position from mouse
+      const worldPos = this.getMouseWorldPosition();
+      console.log('World position:', worldPos);
+      
+      // Check if we got a valid position (raycast hit terrain)
+      if (!worldPos || isNaN(worldPos.x) || isNaN(worldPos.z)) {
+        console.log('Invalid world position');
+        return; // Invalid position
+      }
+      
+      // Convert to tile coordinates
+      const { tileX, tileZ } = this.sceneManager.tileGrid.worldToTile(worldPos.x, worldPos.z);
+      const tile = this.sceneManager.tileGrid.getTile(tileX, tileZ);
+      
+      console.log('Tile coordinates:', tileX, tileZ, 'Tile:', tile);
+      
+      if (!tile || !tile.walkable) {
+        console.log('Invalid or non-walkable tile');
+        return; // Can't place on invalid or non-walkable tiles
+      }
+      
+      const adminMenu = gameInstance.adminMenu;
+      const category = adminMenu.selectedCategory;
+      const type = adminMenu.selectedType;
+
+      console.log('Placing:', category, type);
+
+      let success = false;
+
+      try {
+        switch (category) {
+          case 'resources':
+            this.sceneManager.spawnResource(tile.worldX, tile.worldZ, type, 1);
+            success = true;
+            console.log('Resource spawned');
+            break;
+
+          case 'items':
+            // Items spawn as resources in the world
+            this.sceneManager.spawnResource(tile.worldX, tile.worldZ, type, 1);
+            success = true;
+            console.log('Item spawned');
+            break;
+
+          case 'objects':
+            if (type === 'tree') {
+              // Import Tree dynamically to avoid circular dependency
+              const { Tree } = await import('./Tree.js');
+              const tree = new Tree(this.scene, this.sceneManager.tileGrid, tileX, tileZ);
+              this.worldObjects.push(tree);
+              if (this.sceneManager.interactionManager) {
+                this.sceneManager.interactionManager.addObject(tree);
+              }
+              success = true;
+              console.log('Tree spawned');
+            }
+            break;
+
+          case 'buildings':
+            if (this.buildingManager) {
+              const building = this.buildingManager.placeBuilding(tileX, tileZ, type);
+              if (building) {
+                this.worldObjects.push(building);
+                success = true;
+                console.log('Building placed');
+              } else {
+                console.log('Building placement failed');
+              }
+            }
+            break;
+        }
+      } catch (error) {
+        console.error('Error placing item in admin mode:', error);
+      }
+
+      // Don't exit placement mode - allow multiple placements
+      // User can cancel via the cancel button
+      return;
+    }
+
     // Check if in building placement mode
     if (this.buildingManager && this.buildingManager.placementMode) {
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);

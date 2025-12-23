@@ -25,6 +25,8 @@ export class Game {
     this.settingsMenu = null;
     this.creditsMenu = null;
     this.adminMenu = null;
+    // Store game instance globally for access from other modules
+    window.gameInstance = this;
     this.versionWatermark = null;
     this.saveLoadDialog = null;
     this.playSubmenu = null;
