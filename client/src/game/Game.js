@@ -31,6 +31,7 @@ export class Game {
     window.gameInstance = this;
     this.versionWatermark = null;
     this.saveLoadDialog = null;
+    this.characterNameDialog = null;
     this.playSubmenu = null;
     this.gameState = new GameState();
     this.audioManager = new AudioManager();
@@ -38,6 +39,7 @@ export class Game {
     this.saveManager = new SaveManager();
     this.isInitialized = false;
     this.lastTime = 0;
+    this.isStartingGame = false; // Prevent multiple simultaneous game starts
   }
 
   async init() {
@@ -218,7 +220,11 @@ export class Game {
     this.playSubmenu.onMultiplayer(() => {
       // Check if character name is set
       if (!this.checkCharacterName()) {
-        this.showCharacterNameWarning();
+        this.showCharacterNameWarning(() => {
+          // Continue with multiplayer after name is set
+          console.log('Multiplayer clicked');
+          // TODO: Implement multiplayer functionality
+        });
         return;
       }
       // Placeholder for multiplayer
@@ -268,10 +274,300 @@ export class Game {
     }
   }
 
-  showCharacterNameWarning() {
-    const message = 'Please set a character name before joining a game. Go to Character in the main menu.';
-    const userChoice = confirm(message + '\n\nWould you like to go to Character menu now?');
-    if (userChoice) {
+  showCharacterNameWarning(pendingAction = null) {
+    // Create custom dialog if it doesn't exist
+    if (!this.characterNameDialog) {
+      this.createCharacterNameDialog();
+    }
+    // Store the pending action so we can continue after name is set
+    this.characterNameDialog.pendingAction = pendingAction;
+    this.characterNameDialog.show();
+    return false; // Return false to prevent game from starting
+  }
+
+  createCharacterNameDialog() {
+    this.characterNameDialog = document.createElement('div');
+    this.characterNameDialog.id = 'character-name-dialog';
+    this.characterNameDialog.innerHTML = `
+      <div class="dialog-background"></div>
+      <div class="dialog-content">
+        <h2 class="dialog-title">Character Name Required</h2>
+        <p class="dialog-message">Please set a character name before joining a game.</p>
+        <div class="dialog-input-container">
+          <label class="dialog-label" for="quick-name-input">Character Name</label>
+          <input 
+            type="text" 
+            id="quick-name-input" 
+            class="dialog-input" 
+            placeholder="Enter your character name"
+            maxlength="20"
+            autofocus
+          >
+        </div>
+        <div class="dialog-buttons">
+          <button class="dialog-button primary" id="set-name-button">
+            <span class="button-text">Set Name</span>
+          </button>
+          <button class="dialog-button" id="character-menu-button">
+            <span class="button-text">Full Customization</span>
+          </button>
+          <button class="dialog-button" id="cancel-dialog-button">
+            <span class="button-text">Cancel</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Add styles
+    const style = document.createElement('style');
+    if (!document.getElementById('character-name-dialog-styles')) {
+      style.id = 'character-name-dialog-styles';
+      style.textContent = `
+        #character-name-dialog {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: none;
+          justify-content: center;
+          align-items: center;
+          z-index: 5000;
+          backdrop-filter: blur(8px);
+          pointer-events: auto;
+        }
+
+        #character-name-dialog.visible {
+          display: flex;
+        }
+
+        #character-name-dialog:not(.visible) {
+          pointer-events: none;
+        }
+
+        #character-name-dialog .dialog-background {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(180deg, #87CEEB 0%, #B0E0E6 50%, #87CEEB 100%);
+          background-size: 100% 200%;
+          animation: skyShift 20s ease infinite;
+          opacity: 0.85;
+          pointer-events: auto;
+        }
+
+        @keyframes skyShift {
+          0%, 100% { background-position: 0% 0%; }
+          50% { background-position: 0% 100%; }
+        }
+
+        #character-name-dialog .dialog-content {
+          position: relative;
+          z-index: 1;
+          background: rgba(255, 255, 255, 0.95);
+          border: 3px solid #34495e;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          min-width: 400px;
+          max-width: 500px;
+          padding: 40px;
+          animation: fadeInScale 0.3s ease-out;
+        }
+
+        @keyframes fadeInScale {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        #character-name-dialog .dialog-title {
+          color: #1a1a1a;
+          font-size: 32px;
+          margin: 0 0 20px 0;
+          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+          font-family: 'Arial', sans-serif;
+          font-weight: bold;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          text-align: center;
+        }
+
+        #character-name-dialog .dialog-message {
+          color: #1a1a1a;
+          font-size: 16px;
+          margin: 0 0 30px 0;
+          font-family: 'Arial', sans-serif;
+          text-align: center;
+        }
+
+        #character-name-dialog .dialog-input-container {
+          margin-bottom: 30px;
+        }
+
+        #character-name-dialog .dialog-label {
+          display: block;
+          color: #1a1a1a;
+          font-size: 16px;
+          font-family: 'Arial', sans-serif;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 8px;
+        }
+
+        #character-name-dialog .dialog-input {
+          width: 100%;
+          padding: 12px 16px;
+          border: 2px solid #34495e;
+          border-radius: 6px;
+          font-size: 16px;
+          font-family: 'Arial', sans-serif;
+          color: #1a1a1a;
+          background: rgba(255, 255, 255, 0.95);
+          transition: all 0.2s ease;
+          box-sizing: border-box;
+        }
+
+        #character-name-dialog .dialog-input:focus {
+          outline: none;
+          border-color: #2c3e50;
+          box-shadow: 0 0 0 3px rgba(52, 73, 94, 0.1);
+        }
+
+        #character-name-dialog .dialog-buttons {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        #character-name-dialog .dialog-button {
+          position: relative;
+          background: rgba(255, 255, 255, 0.95);
+          border: 3px solid #34495e;
+          border-radius: 8px;
+          color: #1a1a1a;
+          font-size: 18px;
+          padding: 12px 40px;
+          width: 100%;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: 'Arial', sans-serif;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        #character-name-dialog .dialog-button:hover {
+          background: rgba(255, 255, 255, 1);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+          transform: translateY(-2px);
+          border-color: #2c3e50;
+        }
+
+        #character-name-dialog .dialog-button:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #character-name-dialog .dialog-button.primary {
+          background: rgba(52, 73, 94, 0.95);
+          color: white;
+        }
+
+        #character-name-dialog .dialog-button.primary:hover {
+          background: rgba(52, 73, 94, 1);
+        }
+
+        #character-name-dialog .button-text {
+          position: relative;
+          z-index: 1;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Setup event listeners
+    const nameInput = this.characterNameDialog.querySelector('#quick-name-input');
+    const setNameButton = this.characterNameDialog.querySelector('#set-name-button');
+    const characterMenuButton = this.characterNameDialog.querySelector('#character-menu-button');
+    const cancelButton = this.characterNameDialog.querySelector('#cancel-dialog-button');
+
+    // Load existing name if available
+    try {
+      const savedName = localStorage.getItem('taskforge_characterName');
+      if (savedName) {
+        nameInput.value = savedName;
+      }
+    } catch (error) {
+      console.warn('Failed to load character name:', error);
+    }
+
+    // Set name button
+    setNameButton.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (name && name.length > 0) {
+        try {
+          localStorage.setItem('taskforge_characterName', name);
+          // Show success message briefly
+          const buttonText = setNameButton.querySelector('.button-text');
+          const originalText = buttonText ? buttonText.textContent : setNameButton.textContent;
+          if (buttonText) {
+            buttonText.textContent = 'Saved!';
+          } else {
+            setNameButton.textContent = 'Saved!';
+          }
+          setNameButton.disabled = true;
+          
+          const pendingAction = this.characterNameDialog.pendingAction;
+          
+          setTimeout(() => {
+            this.characterNameDialog.hide();
+            if (buttonText) {
+              buttonText.textContent = originalText;
+            } else {
+              setNameButton.textContent = originalText;
+            }
+            setNameButton.disabled = false;
+            this.characterNameDialog.pendingAction = null;
+            
+            // Continue with the pending action if one was stored
+            if (pendingAction && typeof pendingAction === 'function') {
+              // Small delay to ensure dialog is fully hidden and game state is ready
+              setTimeout(() => {
+                // Only continue if we're still in menu state (not already loading/playing)
+                if (this.gameState.getState() === GameState.MENU) {
+                  pendingAction();
+                } else {
+                  console.warn('Cannot continue action: game state is not MENU');
+                }
+              }, 200);
+            }
+          }, 500);
+        } catch (error) {
+          console.warn('Failed to save character name:', error);
+          alert('Failed to save character name. Please try again.');
+        }
+      } else {
+        // Show error on input
+        nameInput.style.borderColor = '#e74c3c';
+        nameInput.focus();
+        setTimeout(() => {
+          nameInput.style.borderColor = '#34495e';
+        }, 2000);
+      }
+    });
+
+    // Character menu button
+    characterMenuButton.addEventListener('click', () => {
+      this.characterNameDialog.hide();
       // Show character menu
       if (this.mainMenu) {
         this.mainMenu.hide();
@@ -282,8 +578,42 @@ export class Game {
       if (this.characterMenu) {
         this.characterMenu.show();
       }
-    }
-    return userChoice;
+    });
+
+    // Cancel button
+    cancelButton.addEventListener('click', () => {
+      this.characterNameDialog.hide();
+    });
+
+    // Enter key to submit
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        setNameButton.click();
+      }
+    });
+
+    // Add show/hide methods
+    this.characterNameDialog.show = () => {
+      if (!this.characterNameDialog.parentNode) {
+        this.container.appendChild(this.characterNameDialog);
+      }
+      this.characterNameDialog.classList.add('visible');
+      // Focus input after a brief delay to ensure it's visible
+      setTimeout(() => {
+        const input = this.characterNameDialog.querySelector('#quick-name-input');
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }, 100);
+    };
+
+    this.characterNameDialog.hide = () => {
+      this.characterNameDialog.classList.remove('visible');
+    };
+
+    // Add to container but hidden initially
+    this.container.appendChild(this.characterNameDialog);
   }
 
   handleStateChange(newState, oldState) {
@@ -301,12 +631,31 @@ export class Game {
   }
 
   async startGame() {
-    // Check if character name is set
-    if (!this.checkCharacterName()) {
-      this.showCharacterNameWarning();
+    // Prevent multiple simultaneous starts
+    if (this.isStartingGame) {
+      console.warn('Game start already in progress');
       return;
     }
 
+    // Check if character name is set
+    if (!this.checkCharacterName()) {
+      this.showCharacterNameWarning(() => {
+        // Continue starting the game after name is set
+        // Only if we're still in menu state
+        if (this.gameState.getState() === GameState.MENU && !this.isStartingGame) {
+          this.startGame();
+        }
+      });
+      return;
+    }
+
+    // Double-check we're in the right state before starting
+    if (this.gameState.getState() !== GameState.MENU && this.gameState.getState() !== GameState.PAUSED) {
+      console.warn('Cannot start game: invalid game state', this.gameState.getState());
+      return;
+    }
+
+    this.isStartingGame = true;
     this.gameState.setState(GameState.LOADING);
     this.mainMenu.hide();
 
@@ -430,6 +779,7 @@ export class Game {
     }
 
     this.gameState.setState(GameState.PLAYING);
+    this.isStartingGame = false; // Reset flag when game is fully started
     
     // Start gameplay music
     this.audioManager.playNextGameplayTrack();
@@ -498,7 +848,10 @@ export class Game {
   async resumeLastSave() {
     // Check if character name is set
     if (!this.checkCharacterName()) {
-      this.showCharacterNameWarning();
+      this.showCharacterNameWarning(() => {
+        // Continue resuming save after name is set
+        this.resumeLastSave();
+      });
       return;
     }
 
@@ -550,7 +903,10 @@ export class Game {
 
     // Check if character name is set
     if (!this.checkCharacterName()) {
-      this.showCharacterNameWarning();
+      this.showCharacterNameWarning(() => {
+        // Continue loading world after name is set
+        this.loadWorld(filePath);
+      });
       return;
     }
 
@@ -580,6 +936,7 @@ export class Game {
       if (!result.success) {
         console.error('Failed to load world:', result.error);
         alert(`Failed to load world: ${result.error}`);
+        this.isStartingGame = false; // Reset flag on error
         this.gameState.setState(GameState.MENU);
         if (this.loadingScreen) {
           this.loadingScreen.hide();
@@ -671,6 +1028,7 @@ export class Game {
     } catch (error) {
       console.error('Error loading world:', error);
       alert(`Error loading world: ${error.message}`);
+      this.isStartingGame = false; // Reset flag on error
       this.gameState.setState(GameState.MENU);
       if (this.loadingScreen) {
         this.loadingScreen.hide();
@@ -682,6 +1040,7 @@ export class Game {
   }
 
   returnToMenu() {
+    this.isStartingGame = false; // Reset flag when returning to menu
     this.gameState.setState(GameState.MENU);
     this.pauseMenu.hide();
     
