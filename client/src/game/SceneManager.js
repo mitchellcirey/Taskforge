@@ -446,16 +446,9 @@ export class SceneManager {
           const tree = new Tree(this.scene, this.tileGrid, treeData.tileX, treeData.tileZ, treeData.sizeVariation || 1.0);
           this.worldObjects.push(tree);
           
-          // Re-hook tree harvest callback (similar to initialization)
-          if (tree.harvest && typeof tree.harvest === 'function') {
-            const originalHarvest = tree.harvest.bind(tree);
-            tree.harvest = () => {
-              const results = originalHarvest();
-              if (results && Array.isArray(results)) {
-                this.processHarvestResults(tree, results);
-              }
-              return results;
-            };
+          // Register with interaction manager
+          if (this.interactionManager) {
+            this.interactionManager.addObject(tree);
           }
         });
       }
@@ -519,6 +512,22 @@ export class SceneManager {
       this.cameraController.distance = saveData.camera.distance || this.cameraController.distance;
       this.cameraController.updateCameraPosition();
     }
+
+    // Hook harvestable objects to process harvest results (after all objects are restored)
+    // This ensures all trees and other harvestable objects have their callbacks properly set up
+    this.worldObjects.forEach(obj => {
+      if (obj.harvest && typeof obj.harvest === 'function') {
+        const originalHarvest = obj.harvest.bind(obj);
+        const sceneManager = this; // Store reference for closure
+        obj.harvest = function() {
+          const results = originalHarvest();
+          if (results && Array.isArray(results)) {
+            sceneManager.processHarvestResults(obj, results);
+          }
+          return results;
+        };
+      }
+    });
   }
 
   restoreInventory(inventory, inventoryData) {

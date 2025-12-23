@@ -26,6 +26,10 @@ export class Tree extends WorldObject {
     return 'tree';
   }
 
+  shouldRemove() {
+    return this.isChopped; // Remove tree when it's been chopped
+  }
+
   create() {
     // Create multi-tiered low-poly evergreen tree matching the image style
     const group = new THREE.Group();

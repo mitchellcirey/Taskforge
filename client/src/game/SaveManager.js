@@ -69,11 +69,14 @@ export class SaveManager {
       const saveType = obj.getSaveType ? obj.getSaveType() : null;
       
       if (saveType === 'tree') {
-        trees.push({
-          tileX: obj.tileX,
-          tileZ: obj.tileZ,
-          sizeVariation: obj.sizeVariation || 1.0
-        });
+        // Don't save chopped trees - they should be removed from the world
+        if (!obj.isChopped) {
+          trees.push({
+            tileX: obj.tileX,
+            tileZ: obj.tileZ,
+            sizeVariation: obj.sizeVariation || 1.0
+          });
+        }
       } else if (saveType === 'resource') {
         resources.push({
           tileX: obj.tileX,

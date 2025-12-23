@@ -293,13 +293,15 @@ export class Game {
       this.sceneManager.spawnSticks(20);
       
       // Hook harvestable objects to process harvest results (same as in init)
+      // Use regular function with stored reference to ensure proper context
+      const sceneManager = this.sceneManager;
       this.sceneManager.worldObjects.forEach(obj => {
         if (obj.harvest && typeof obj.harvest === 'function') {
           const originalHarvest = obj.harvest.bind(obj);
-          obj.harvest = () => {
+          obj.harvest = function() {
             const results = originalHarvest();
             if (results && Array.isArray(results)) {
-              this.sceneManager.processHarvestResults(obj, results);
+              sceneManager.processHarvestResults(obj, results);
             }
             return results;
           };
