@@ -9,6 +9,7 @@ export class SettingsMenu {
     this.menuMusicVolume = 0.5;
     this.sfxVolume = 0.7;
     this.musicMuted = false;
+    this.menuMusicMuted = false;
     this.sfxMuted = false;
     this.activeTab = 'general';
     this.onCloseCallback = null;
@@ -58,6 +59,11 @@ export class SettingsMenu {
         this.musicMuted = savedMusicMuted === 'true';
       }
       
+      const savedMenuMusicMuted = localStorage.getItem('taskforge_menuMusicMuted');
+      if (savedMenuMusicMuted !== null) {
+        this.menuMusicMuted = savedMenuMusicMuted === 'true';
+      }
+      
       const savedSfxMuted = localStorage.getItem('taskforge_sfxMuted');
       if (savedSfxMuted !== null) {
         this.sfxMuted = savedSfxMuted === 'true';
@@ -73,6 +79,7 @@ export class SettingsMenu {
       localStorage.setItem('taskforge_menuMusicVolume', this.menuMusicVolume.toString());
       localStorage.setItem('taskforge_sfxVolume', this.sfxVolume.toString());
       localStorage.setItem('taskforge_musicMuted', this.musicMuted.toString());
+      localStorage.setItem('taskforge_menuMusicMuted', this.menuMusicMuted.toString());
       localStorage.setItem('taskforge_sfxMuted', this.sfxMuted.toString());
     } catch (error) {
       console.warn('Failed to save audio settings:', error);
@@ -128,7 +135,7 @@ export class SettingsMenu {
                   <div class="audio-controls">
                     <input type="range" class="volume-slider" id="menu-music-volume-slider" min="0" max="100" value="${Math.round(this.menuMusicVolume * 100)}">
                     <label class="mute-checkbox-label">
-                      <input type="checkbox" class="mute-checkbox" id="menu-music-mute-checkbox" ${!this.musicMuted ? 'checked' : ''}>
+                      <input type="checkbox" class="mute-checkbox" id="menu-music-mute-checkbox" ${!this.menuMusicMuted ? 'checked' : ''}>
                       <span class="mute-checkbox-icon"></span>
                     </label>
                   </div>
@@ -619,11 +626,7 @@ export class SettingsMenu {
 
     if (menuMusicMuteCheckbox) {
       menuMusicMuteCheckbox.addEventListener('change', (e) => {
-        this.musicMuted = !e.target.checked;
-        // Sync the other music mute checkbox
-        if (musicMuteCheckbox) {
-          musicMuteCheckbox.checked = e.target.checked;
-        }
+        this.menuMusicMuted = !e.target.checked;
         this.applyAudioSettings();
         this.saveAudioSettings();
       });
@@ -632,10 +635,6 @@ export class SettingsMenu {
     if (musicMuteCheckbox) {
       musicMuteCheckbox.addEventListener('change', (e) => {
         this.musicMuted = !e.target.checked;
-        // Sync the menu music mute checkbox
-        if (menuMusicMuteCheckbox) {
-          menuMusicMuteCheckbox.checked = e.target.checked;
-        }
         this.applyAudioSettings();
         this.saveAudioSettings();
       });
@@ -745,6 +744,7 @@ export class SettingsMenu {
       // Store mute states in AudioManager for reference when new sounds play
       if (this.audioManager) {
         this.audioManager.musicMuted = this.musicMuted;
+        this.audioManager.menuMusicMuted = this.menuMusicMuted;
         this.audioManager.sfxMuted = this.sfxMuted;
       }
       
@@ -752,10 +752,11 @@ export class SettingsMenu {
       if (this.audioManager.sounds) {
         this.audioManager.sounds.forEach((sound, name) => {
           // Check if it's a music track
-          const isMusic = name === 'main_menu' || 
-                         this.audioManager.gameplayMusicTracks?.includes(name);
-          if (isMusic) {
-            // Apply music mute state
+          if (name === 'main_menu') {
+            // Apply menu music mute state
+            sound.muted = this.menuMusicMuted;
+          } else if (this.audioManager.gameplayMusicTracks?.includes(name)) {
+            // Apply gameplay music mute state
             sound.muted = this.musicMuted;
           } else {
             // Apply SFX mute state
@@ -766,7 +767,13 @@ export class SettingsMenu {
       
       // Also apply to current music if it exists
       if (this.audioManager.currentMusic) {
-        this.audioManager.currentMusic.muted = this.musicMuted;
+        const currentMusicName = Array.from(this.audioManager.sounds.entries())
+          .find(([name, sound]) => sound === this.audioManager.currentMusic)?.[0];
+        if (currentMusicName === 'main_menu') {
+          this.audioManager.currentMusic.muted = this.menuMusicMuted;
+        } else {
+          this.audioManager.currentMusic.muted = this.musicMuted;
+        }
       }
     }
     
@@ -791,7 +798,7 @@ export class SettingsMenu {
       sfxMuteCheckbox.checked = !this.sfxMuted;
     }
     if (menuMusicMuteCheckbox) {
-      menuMusicMuteCheckbox.checked = !this.musicMuted;
+      menuMusicMuteCheckbox.checked = !this.menuMusicMuted;
     }
     if (musicMuteCheckbox) {
       musicMuteCheckbox.checked = !this.musicMuted;

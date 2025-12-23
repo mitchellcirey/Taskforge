@@ -8,6 +8,7 @@ export class AudioManager {
     this.sfxVolume = 0.7;
     this.isMuted = false;
     this.musicMuted = false;
+    this.menuMusicMuted = false;
     this.sfxMuted = false;
     this.gameplayMusicTracks = [];
     this.currentGameplayTrackIndex = 0;
@@ -17,6 +18,10 @@ export class AudioManager {
       const savedMusicMuted = localStorage.getItem('taskforge_musicMuted');
       if (savedMusicMuted !== null) {
         this.musicMuted = savedMusicMuted === 'true';
+      }
+      const savedMenuMusicMuted = localStorage.getItem('taskforge_menuMusicMuted');
+      if (savedMenuMusicMuted !== null) {
+        this.menuMusicMuted = savedMenuMusicMuted === 'true';
       }
       const savedSfxMuted = localStorage.getItem('taskforge_sfxMuted');
       if (savedSfxMuted !== null) {
@@ -45,7 +50,12 @@ export class AudioManager {
       audio.loop = isMusic;
       audio.volume = isMusic ? this.musicVolume : this.sfxVolume;
       // Apply mute state based on sound type
-      audio.muted = isMusic ? this.musicMuted : this.sfxMuted;
+      if (isMusic) {
+        // Menu music uses menuMusicMuted, gameplay music uses musicMuted
+        audio.muted = name === 'main_menu' ? this.menuMusicMuted : this.musicMuted;
+      } else {
+        audio.muted = this.sfxMuted;
+      }
       
       audio.addEventListener('canplaythrough', () => {
         this.sounds.set(name, audio);
@@ -87,7 +97,8 @@ export class AudioManager {
       music.loop = loop;
       // Use menuMusicVolume for main_menu track, musicVolume for gameplay tracks
       music.volume = name === 'main_menu' ? this.menuMusicVolume : this.musicVolume;
-      music.muted = this.musicMuted;
+      // Use menuMusicMuted for main_menu track, musicMuted for gameplay tracks
+      music.muted = name === 'main_menu' ? this.menuMusicMuted : this.musicMuted;
       this.currentMusic = music;
       music.play().catch(e => {
         console.warn(`Could not play music ${name}:`, e);
