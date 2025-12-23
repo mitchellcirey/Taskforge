@@ -119,37 +119,51 @@ async function getAllSaveFolders() {
 }
 
 // IPC Handlers
-ipcMain.handle('save-world', async (event, saveData, screenshotDataURL = null) => {
+ipcMain.handle('save-world', async (event, saveData, screenshotDataURL = null, existingSavePath = null) => {
   try {
     const saveDir = await ensureSaveDirectory();
     
-    // Check if we're at the 5-save limit and delete oldest if needed
-    const existingSaves = await getAllSaveFolders();
-    const MAX_SAVES = 5;
+    let saveFolderPath;
+    let filePath;
     
-    if (existingSaves.length >= MAX_SAVES) {
-      // Delete the oldest save (last in the sorted array)
-      const oldestSave = existingSaves[existingSaves.length - 1];
-      try {
-        await fs.rm(oldestSave.folderPath, { recursive: true, force: true });
-        console.log(`Deleted oldest save: ${oldestSave.folderPath}`);
-      } catch (deleteError) {
-        console.error('Error deleting oldest save:', deleteError);
-        // Continue anyway - we'll try to save the new one
+    if (existingSavePath) {
+      // Overwriting existing save
+      // Extract folder path from save file path (save.json is inside a folder)
+      saveFolderPath = path.dirname(existingSavePath);
+      filePath = existingSavePath;
+      
+      // Verify it's a valid save folder
+      const folderName = path.basename(saveFolderPath);
+      if (!folderName.startsWith('save_')) {
+        return { success: false, error: 'Invalid save folder for overwrite' };
       }
+    } else {
+      // Creating new save - check if we're at the 5-save limit
+      const existingSaves = await getAllSaveFolders();
+      const MAX_SAVES = 5;
+      
+      if (existingSaves.length >= MAX_SAVES) {
+        // Don't auto-delete anymore - let the user know they need to delete one
+        return { 
+          success: false, 
+          error: 'Maximum save slots reached. Please delete a save file first.' 
+        };
+      }
+      
+      const folderName = generateSaveFolderName();
+      saveFolderPath = path.join(saveDir, folderName);
+      
+      // Create save folder if it doesn't exist
+      if (!existsSync(saveFolderPath)) {
+        await fs.mkdir(saveFolderPath, { recursive: true });
+      }
+      
+      // Save game data
+      const fileName = 'save.json';
+      filePath = path.join(saveFolderPath, fileName);
     }
     
-    const folderName = generateSaveFolderName();
-    const saveFolderPath = path.join(saveDir, folderName);
-    
-    // Create save folder if it doesn't exist
-    if (!existsSync(saveFolderPath)) {
-      await fs.mkdir(saveFolderPath, { recursive: true });
-    }
-    
-    // Save game data
-    const fileName = 'save.json';
-    const filePath = path.join(saveFolderPath, fileName);
+    // Write save data (overwrites if existing)
     await fs.writeFile(filePath, JSON.stringify(saveData, null, 2), 'utf8');
     
     // Save screenshot if provided

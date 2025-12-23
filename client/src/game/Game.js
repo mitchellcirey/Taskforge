@@ -8,6 +8,7 @@ import { CharacterMenu } from '../ui/CharacterMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
 import { SaveLoadDialog } from '../ui/SaveLoadDialog.js';
+import { SaveDialog } from '../ui/SaveDialog.js';
 import { PlaySubmenu } from '../ui/PlaySubmenu.js';
 import { NewGameDialog } from '../ui/NewGameDialog.js';
 import { GameState } from './GameState.js';
@@ -37,6 +38,7 @@ export class Game {
     this.newGameDialog = null;
     this.currentWorldName = null;
     this.currentWorldSeed = null;
+    this.currentSavePath = null; // Track the current save file path
     this.gameState = new GameState();
     this.audioManager = new AudioManager();
     this.wsClient = null; // WebSocket client for multiplayer
@@ -207,6 +209,21 @@ export class Game {
       if (this.mainMenu && this.gameState.getState() === GameState.MENU) {
         this.mainMenu.show();
       }
+      // Show pause menu again if we were in paused state
+      if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
+        this.pauseMenu.show();
+      }
+    });
+
+    // Create save dialog
+    this.saveDialog = new SaveDialog(this.container);
+    this.saveDialog.onOverwrite(() => {
+      this.performSave(true); // Overwrite existing save
+    });
+    this.saveDialog.onSaveAsNew(() => {
+      this.performSave(false); // Save as new
+    });
+    this.saveDialog.onCancel(() => {
       // Show pause menu again if we were in paused state
       if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
         this.pauseMenu.show();
@@ -652,6 +669,7 @@ export class Game {
     // Store world name and seed for use in startGame
     this.currentWorldName = worldName;
     this.currentWorldSeed = seed;
+    this.currentSavePath = null; // New game, no save file yet
     
     // Register world with server
     this.registerWorldWithServer(worldName, seed).catch(err => {
@@ -881,7 +899,56 @@ export class Game {
       return;
     }
 
+    // Check if Electron API is available
+    if (!window.electronAPI || !window.electronAPI.saveWorld) {
+      console.error('Electron API not available');
+      alert('Save functionality is not available. Please run the game in Electron.');
+      return;
+    }
+
+    // Check if this world has already been saved
+    if (this.currentSavePath) {
+      // Get the save file name from the path
+      const saveFiles = await window.electronAPI.listSaveFiles();
+      const existingSave = saveFiles.find(save => save.path === this.currentSavePath);
+      
+      if (existingSave) {
+        // Show dialog asking to overwrite or save as new
+        this.pauseMenu.hide(); // Hide pause menu while dialog is shown
+        this.saveDialog.show(existingSave.name);
+        return;
+      } else {
+        // Save path is set but file doesn't exist anymore, clear it
+        this.currentSavePath = null;
+      }
+    }
+
+    // No existing save, proceed with new save
+    await this.performSave(false);
+  }
+
+  async performSave(overwrite = false) {
+    if (!this.sceneManager) {
+      console.error('Cannot save: SceneManager not initialized');
+      return;
+    }
+
     try {
+      // Check if we're at the 5-save limit when saving as new
+      if (!overwrite) {
+        const saveFiles = await window.electronAPI.listSaveFiles();
+        const MAX_SAVES = 5;
+        
+        if (saveFiles.length >= MAX_SAVES) {
+          alert('You have reached the maximum of 5 save slots. Please delete a save file first before creating a new one.');
+          // Show pause menu again
+          if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
+            this.pauseMenu.show();
+          }
+          return;
+        }
+      }
+
       // Capture screenshot before saving
       const screenshotDataURL = this.captureScreenshot();
       
@@ -900,19 +967,35 @@ export class Game {
         return;
       }
 
-      const result = await window.electronAPI.saveWorld(saveData, screenshotDataURL);
+      // If overwriting, pass the existing save path
+      const savePath = overwrite ? this.currentSavePath : null;
+      const result = await window.electronAPI.saveWorld(saveData, screenshotDataURL, savePath);
       
       if (result.success) {
         console.log('World saved successfully:', result.filePath);
-        // Show success message (you could add a toast notification here)
+        // Update current save path
+        this.currentSavePath = result.filePath;
+        // Show success message
         alert('World saved successfully!');
+        // Show pause menu again if we were in paused state
+        if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
+          this.pauseMenu.show();
+        }
       } else {
         console.error('Failed to save world:', result.error);
         alert(`Failed to save world: ${result.error}`);
+        // Show pause menu again if we were in paused state
+        if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
+          this.pauseMenu.show();
+        }
       }
     } catch (error) {
       console.error('Error saving world:', error);
       alert(`Error saving world: ${error.message}`);
+      // Show pause menu again if we were in paused state
+      if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
+        this.pauseMenu.show();
+      }
     }
   }
 
@@ -1035,6 +1118,8 @@ export class Game {
       const saveWorldName = migratedData.worldName || null;
       this.currentWorldName = saveWorldName;
       this.currentWorldSeed = saveSeed;
+      // Track the save file path so we can overwrite it later
+      this.currentSavePath = filePath;
 
       // Initialize scene manager if not already initialized
       if (!this.sceneManager) {

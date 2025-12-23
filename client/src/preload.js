@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   // Save/Load APIs
-  saveWorld: (data, screenshotDataURL) => ipcRenderer.invoke('save-world', data, screenshotDataURL),
+  saveWorld: (data, screenshotDataURL, existingSavePath = null) => ipcRenderer.invoke('save-world', data, screenshotDataURL, existingSavePath),
   loadWorld: (filePath) => ipcRenderer.invoke('load-world', filePath),
   getSaveDirectory: () => ipcRenderer.invoke('get-save-directory'),
   listSaveFiles: () => ipcRenderer.invoke('list-save-files'),
