@@ -393,6 +393,12 @@ export class InteractionManager {
             }
             
             if (clickedBuilding) {
+              // Skip UI for campfire (temporary fix for crash)
+              if (clickedBuilding.buildingType === 'campfire') {
+                console.log('Campfire clicked - UI disabled to prevent crash');
+                return;
+              }
+              
               // Handle storage container withdraw (left click)
               if (clickedBuilding.buildingType === 'storage' && this.player) {
                 try {
@@ -476,20 +482,36 @@ export class InteractionManager {
                 }
               } else {
                 // For other buildings, show building UI
-                if (this.sceneManager) {
+                if (this.sceneManager && clickedBuilding && clickedBuilding.buildingType) {
                   try {
+                    // Close existing UI first
                     if (this.sceneManager.currentBuildingUI) {
-                      this.sceneManager.currentBuildingUI.destroy();
+                      try {
+                        this.sceneManager.currentBuildingUI.destroy();
+                      } catch (e) {
+                        console.warn('Error destroying existing building UI:', e);
+                      }
+                      this.sceneManager.currentBuildingUI = null;
                     }
+                    
+                    // Import and create BuildingUI
                     const { BuildingUI } = await import('../ui/BuildingUI.js');
-                    this.sceneManager.currentBuildingUI = new BuildingUI(
-                      this.sceneManager.container,
-                      clickedBuilding
-                    );
-                    this.sceneManager.currentBuildingUI.show();
+                    if (BuildingUI && clickedBuilding) {
+                      this.sceneManager.currentBuildingUI = new BuildingUI(
+                        this.sceneManager.container,
+                        clickedBuilding
+                      );
+                      if (this.sceneManager.currentBuildingUI && this.sceneManager.currentBuildingUI.show) {
+                        this.sceneManager.currentBuildingUI.show();
+                      }
+                    }
                   } catch (error) {
                     console.error('Error showing building UI:', error);
-                    // Don't freeze the game on error
+                    console.error('Error stack:', error.stack);
+                    // Clean up on error
+                    if (this.sceneManager) {
+                      this.sceneManager.currentBuildingUI = null;
+                    }
                   }
                 }
               }
@@ -601,32 +623,67 @@ export class InteractionManager {
     this.raycaster.ray.intersectPlane(plane, intersectionPoint);
 
     if (this.player && this.sceneManager && this.sceneManager.tileGrid) {
-      // Snap to tile grid
-      const { tileX, tileZ } = this.sceneManager.tileGrid.worldToTile(intersectionPoint.x, intersectionPoint.z);
-      
-      // Check if there's a resource on this tile
-      const tile = this.sceneManager.tileGrid.getTile(tileX, tileZ);
-      if (tile) {
-        // Find resources on this tile
-        const resourceOnTile = this.worldObjects.find(obj => {
-          if (obj instanceof Resource || (obj.constructor && obj.constructor.name === 'Resource')) {
-            const objTilePos = obj.getTilePosition();
-            return objTilePos.tileX === tileX && objTilePos.tileZ === tileZ;
+      try {
+        // Snap to tile grid
+        const { tileX, tileZ } = this.sceneManager.tileGrid.worldToTile(intersectionPoint.x, intersectionPoint.z);
+        
+        // Check if tile is occupied by a building (don't move to occupied tiles)
+        const tile = this.sceneManager.tileGrid.getTile(tileX, tileZ);
+        if (tile && tile.occupied) {
+          // Check if there's a building on this tile
+          if (this.buildingManager && this.buildingManager.buildings) {
+            const buildingOnTile = this.buildingManager.buildings.find(building => {
+              if (!building || !building.getTilePosition) return false;
+              try {
+                const buildingTilePos = building.getTilePosition();
+                return buildingTilePos && buildingTilePos.tileX === tileX && buildingTilePos.tileZ === tileZ;
+              } catch (e) {
+                console.warn('Error checking building tile position:', e);
+                return false;
+              }
+            });
+            if (buildingOnTile) {
+              // Don't move to a tile with a building on it
+              return;
+            }
           }
-          return false;
-        });
-
-        if (resourceOnTile) {
-          // Move to the resource's tile
-          const resourceTilePos = resourceOnTile.getTilePosition();
-          this.player.moveTo(resourceTilePos.tileX, resourceTilePos.tileZ);
-        } else {
-          // Move to clicked tile
-          this.player.moveTo(tileX, tileZ);
         }
-      } else {
-        // Fallback: try to move to tile coordinates anyway
-        this.player.moveTo(tileX, tileZ);
+        
+        if (tile) {
+          // Find resources on this tile
+          const resourceOnTile = this.worldObjects.find(obj => {
+            if (!obj || !obj.getTilePosition) return false;
+            try {
+              if (obj instanceof Resource || (obj.constructor && obj.constructor.name === 'Resource')) {
+                const objTilePos = obj.getTilePosition();
+                return objTilePos && objTilePos.tileX === tileX && objTilePos.tileZ === tileZ;
+              }
+            } catch (e) {
+              console.warn('Error checking resource tile position:', e);
+            }
+            return false;
+          });
+
+          if (resourceOnTile) {
+            // Move to the resource's tile
+            try {
+              const resourceTilePos = resourceOnTile.getTilePosition();
+              if (resourceTilePos) {
+                this.player.moveTo(resourceTilePos.tileX, resourceTilePos.tileZ);
+              }
+            } catch (e) {
+              console.error('Error moving to resource:', e);
+            }
+          } else {
+            // Move to clicked tile (only if not occupied)
+            if (!tile.occupied && tile.walkable) {
+              this.player.moveTo(tileX, tileZ);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in tile click handling:', error);
+        // Don't freeze the game on error
       }
     }
   }

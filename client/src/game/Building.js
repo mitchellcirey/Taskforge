@@ -718,7 +718,23 @@ export class Building extends WorldObject {
     // Only update campfire animations
     if (this.buildingType !== 'campfire') return;
     
+    // Safety check for deltaTime
+    if (!deltaTime || isNaN(deltaTime) || deltaTime <= 0) {
+      return;
+    }
+    
     if (!this.flameMeshes || !this.smokeParticles) return;
+    
+    // Initialize animation state if not already initialized
+    if (this.animationTime === undefined) {
+      this.animationTime = 0;
+    }
+    if (this.smokeSpawnTimer === undefined) {
+      this.smokeSpawnTimer = 0;
+    }
+    if (this.smokeSpawnInterval === undefined) {
+      this.smokeSpawnInterval = 0.8;
+    }
     
     // Accumulate animation time
     this.animationTime += deltaTime;
@@ -729,6 +745,8 @@ export class Building extends WorldObject {
     const flickerPhase = this.animationTime * flickerRate * Math.PI * 2;
     
     this.flameMeshes.forEach((flameData, index) => {
+      if (!flameData || !flameData.mesh || !flameData.material) return;
+      
       const flame = flameData.mesh;
       const material = flameData.material;
       const phaseOffset = index * 0.5; // Offset each flame slightly
@@ -736,7 +754,9 @@ export class Building extends WorldObject {
       
       // Vertical oscillation (rising/falling)
       const verticalOffset = Math.sin(phase) * 0.03;
-      flame.position.y = flameData.baseY + flameData.height / 2 + verticalOffset;
+      if (flameData.baseY !== undefined && flameData.height !== undefined) {
+        flame.position.y = flameData.baseY + flameData.height / 2 + verticalOffset;
+      }
       
       // Scale variation (flickering)
       const scaleVariation = 0.85 + Math.sin(phase * 1.3) * 0.15;
@@ -744,16 +764,20 @@ export class Building extends WorldObject {
       
       // Slight horizontal drift
       const driftPhase = this.animationTime * 0.5 + phaseOffset;
-      flame.position.x = flameData.offsetX + Math.sin(driftPhase) * 0.02;
-      flame.position.z = flameData.offsetZ + Math.cos(driftPhase) * 0.02;
+      if (flameData.offsetX !== undefined && flameData.offsetZ !== undefined) {
+        flame.position.x = flameData.offsetX + Math.sin(driftPhase) * 0.02;
+        flame.position.z = flameData.offsetZ + Math.cos(driftPhase) * 0.02;
+      }
       
       // Emissive intensity pulsing
       const intensityVariation = 1.2 + Math.sin(phase * 1.5) * 0.3;
       material.emissiveIntensity = intensityVariation;
       
       // Slight color variation
-      const colorIntensity = 0.9 + Math.sin(phase * 1.1) * 0.1;
-      material.emissive.copy(flameData.originalColor).multiplyScalar(colorIntensity);
+      if (flameData.originalColor) {
+        const colorIntensity = 0.9 + Math.sin(phase * 1.1) * 0.1;
+        material.emissive.copy(flameData.originalColor).multiplyScalar(colorIntensity);
+      }
     });
     
     // Animate fire light intensity
@@ -786,13 +810,20 @@ export class Building extends WorldObject {
     
     // Update smoke particles
     this.smokeParticles.forEach((smokeData) => {
+      if (!smokeData || !smokeData.mesh || !smokeData.material) return;
+      
+      if (smokeData.age === undefined) smokeData.age = 0;
+      if (smokeData.lifetime === undefined) smokeData.lifetime = 3;
+      
       smokeData.age += deltaTime;
       
       // Check if particle should be active
       if (smokeData.age >= smokeData.lifetime) {
         // Reset particle
         smokeData.age = 0;
-        smokeData.currentY = smokeData.startY;
+        if (smokeData.startY !== undefined) {
+          smokeData.currentY = smokeData.startY;
+        }
         smokeData.material.opacity = 0.6;
         smokeData.mesh.scale.set(1, 1, 1);
         smokeData.mesh.visible = false;
@@ -804,12 +835,17 @@ export class Building extends WorldObject {
         const lifeProgress = smokeData.age / smokeData.lifetime;
         
         // Continuous upward movement
+        if (smokeData.currentY === undefined) smokeData.currentY = smokeData.startY || 0.4;
         smokeData.currentY += deltaTime * 0.4; // Rise speed
         smokeData.mesh.position.y = smokeData.currentY;
         
         // Horizontal drift
-        smokeData.mesh.position.x += smokeData.driftX * deltaTime;
-        smokeData.mesh.position.z += smokeData.driftZ * deltaTime;
+        if (smokeData.driftX !== undefined) {
+          smokeData.mesh.position.x += smokeData.driftX * deltaTime;
+        }
+        if (smokeData.driftZ !== undefined) {
+          smokeData.mesh.position.z += smokeData.driftZ * deltaTime;
+        }
         
         // Scale increase (expansion)
         const scaleMultiplier = 1 + lifeProgress * 2.5; // Expand up to 3.5x

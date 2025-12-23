@@ -9,9 +9,10 @@ export class BuildingUI {
   create() {
     this.element = document.createElement('div');
     this.element.id = 'building-ui';
+    const buildingType = (this.building && this.building.buildingType) ? this.building.buildingType : 'Unknown';
     this.element.innerHTML = `
       <div class="building-info-panel">
-        <h3 class="building-info-title">${this.building.buildingType}</h3>
+        <h3 class="building-info-title">${buildingType}</h3>
         <div id="building-content"></div>
         <button class="close-button" id="close-building-info">Close</button>
       </div>
@@ -93,27 +94,44 @@ export class BuildingUI {
   }
 
   updateContent() {
-    const content = this.element.querySelector('#building-content');
-    if (!content) return;
+    try {
+      if (!this.element) return;
+      const content = this.element.querySelector('#building-content');
+      if (!content) return;
+      if (!this.building) return;
 
-    if (this.building.buildingType === 'storage' && this.building.inventory) {
-      const items = this.building.inventory.getAllItems();
-      content.innerHTML = `
-        <div class="storage-inventory">
-          <h4 style="color: #6FD6FF; margin-bottom: 10px;">Storage Contents</h4>
-          ${items.length === 0 
-            ? '<p style="color: #888; text-align: center; padding: 20px;">Storage is empty</p>'
-            : items.map(item => `
-                <div class="storage-item">
-                  <span style="color: #ffffff; text-transform: capitalize;">${item.type}</span>
-                  <span style="color: #6FD6FF; font-weight: bold;">x${item.count}</span>
-                </div>
-              `).join('')
-          }
-        </div>
-      `;
-    } else {
-      content.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">No information available</p>';
+      if (this.building.buildingType === 'storage' && this.building.inventory) {
+        try {
+          const items = this.building.inventory.getAllItems();
+          content.innerHTML = `
+            <div class="storage-inventory">
+              <h4 style="color: #6FD6FF; margin-bottom: 10px;">Storage Contents</h4>
+              ${items && items.length === 0 
+                ? '<p style="color: #888; text-align: center; padding: 20px;">Storage is empty</p>'
+                : (items || []).map(item => `
+                    <div class="storage-item">
+                      <span style="color: #ffffff; text-transform: capitalize;">${item.type || 'Unknown'}</span>
+                      <span style="color: #6FD6FF; font-weight: bold;">x${item.count || 0}</span>
+                    </div>
+                  `).join('')
+              }
+            </div>
+          `;
+        } catch (err) {
+          console.error('Error rendering storage inventory:', err);
+          content.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">Error loading storage contents</p>';
+        }
+      } else {
+        content.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">No information available</p>';
+      }
+    } catch (error) {
+      console.error('Error in updateContent:', error);
+      if (this.element) {
+        const content = this.element.querySelector('#building-content');
+        if (content) {
+          content.innerHTML = '<p style="color: #ff0000; text-align: center; padding: 20px;">Error loading building information</p>';
+        }
+      }
     }
   }
 
