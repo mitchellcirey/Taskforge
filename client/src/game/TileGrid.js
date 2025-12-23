@@ -51,26 +51,61 @@ export class TileGrid {
     return tiles;
   }
 
+  // Simple hash function for deterministic random values
+  hash(x, y) {
+    let hash = x * 374761393 + y * 668265263;
+    hash = ((hash << 13) ^ hash) >>> 0;
+    hash = hash * 1274126177;
+    return (hash % 2147483647) / 2147483647.0;
+  }
+
+  // 2D noise function for smooth biome generation
+  noise(x, y, scale = 0.1) {
+    const x0 = Math.floor(x * scale);
+    const y0 = Math.floor(y * scale);
+    const x1 = x0 + 1;
+    const y1 = y0 + 1;
+
+    const fx = (x * scale) - x0;
+    const fy = (y * scale) - y0;
+
+    const n00 = this.hash(x0, y0);
+    const n10 = this.hash(x1, y0);
+    const n01 = this.hash(x0, y1);
+    const n11 = this.hash(x1, y1);
+
+    const ux = fx * fx * (3.0 - 2.0 * fx);
+    const uy = fy * fy * (3.0 - 2.0 * fy);
+
+    return (1.0 - uy) * ((1.0 - ux) * n00 + ux * n10) + uy * ((1.0 - ux) * n01 + ux * n11);
+  }
+
   // Create a single tile with default properties
   createTile(tileX, tileZ) {
-    // Determine initial tile type based on position (for initial world generation)
-    const normalizedX = tileX / this.width;
-    const normalizedZ = tileZ / this.height;
-    const diagonalValue = normalizedX + normalizedZ;
+    // Generate random biome patches using noise
+    // Use multiple octaves for more interesting patterns
+    const noise1 = this.noise(tileX, tileZ, 0.05);
+    const noise2 = this.noise(tileX, tileZ, 0.15);
+    const noise3 = this.noise(tileX, tileZ, 0.3);
     
-    let tileType = 'grass';
-    if (diagonalValue < 0.8) {
-      tileType = 'dirt'; // Forest biome
-    } else if (diagonalValue > 1.2) {
-      tileType = 'grass'; // Grass biome
+    // Combine noise values for more natural distribution
+    const combinedNoise = (noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2);
+    
+    // Determine biome based on noise value
+    // Split into three roughly equal regions
+    let tileType = 'grass'; // Grassland (default)
+    if (combinedNoise < 0.33) {
+      tileType = 'sand'; // Sand biome
+    } else if (combinedNoise < 0.66) {
+      tileType = 'dirt'; // Dirt biome
     } else {
-      tileType = 'grass'; // Blend zone
+      tileType = 'grass'; // Grassland biome
     }
 
     return {
       tileX: tileX,
       tileZ: tileZ,
-      type: tileType, // Base terrain type: 'grass', 'dirt', 'water', 'farmable', etc.
+      type: tileType, // Base terrain type: 'grass' (Grassland), 'dirt', 'sand', 'water', 'farmable', etc.
       content: null, // Object on tile: 'tree', 'rock', null, etc.
       occupied: false, // Building occupies this tile
       walkable: true, // Can entities walk here
