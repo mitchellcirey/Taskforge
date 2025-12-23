@@ -255,12 +255,56 @@ export class Game {
 
     // Initialize scene manager
     if (!this.sceneManager) {
+      // First time initialization
       this.sceneManager = new SceneManager(this.container, this.audioManager);
       await this.sceneManager.init();
       
       // Update settings menu with tileGrid after scene manager is initialized
       if (this.sceneManager.tileGrid && this.settingsMenu) {
         this.settingsMenu.setTileGrid(this.sceneManager.tileGrid);
+      }
+    } else {
+      // Reset existing world for new game
+      this.sceneManager.clearWorld();
+      
+      // Reset player to starting position
+      const startTile = this.sceneManager.tileGrid.getTile(
+        Math.floor(this.sceneManager.tileGrid.width / 2),
+        Math.floor(this.sceneManager.tileGrid.height / 2)
+      );
+      if (startTile && this.sceneManager.player) {
+        this.sceneManager.player.mesh.position.set(startTile.worldX, this.sceneManager.player.mesh.position.y, startTile.worldZ);
+        this.sceneManager.player.currentTile = startTile;
+        this.sceneManager.player.path = [];
+        this.sceneManager.player.isMoving = false;
+        this.sceneManager.player.targetPosition = null;
+        
+        // Clear player inventory
+        if (this.sceneManager.player.inventory) {
+          this.sceneManager.player.inventory.clear();
+          if (this.sceneManager.player.updateHandItem) {
+            this.sceneManager.player.updateHandItem();
+          }
+        }
+      }
+      
+      // Regenerate world objects
+      this.sceneManager.spawnTrees(30);
+      this.sceneManager.spawnSticks(20);
+      
+      // Reset camera to default position
+      if (this.sceneManager.cameraController) {
+        const startTile = this.sceneManager.tileGrid.getTile(
+          Math.floor(this.sceneManager.tileGrid.width / 2),
+          Math.floor(this.sceneManager.tileGrid.height / 2)
+        );
+        if (startTile) {
+          this.sceneManager.cameraController.focusPoint.set(startTile.worldX, 0, startTile.worldZ);
+          this.sceneManager.cameraController.yaw = 0;
+          this.sceneManager.cameraController.pitch = Math.PI / 4; // 45 degrees
+          this.sceneManager.cameraController.distance = 20;
+          this.sceneManager.cameraController.updateCameraPosition();
+        }
       }
     }
 
