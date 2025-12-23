@@ -16,15 +16,13 @@ export class CreditsMenu {
         <div class="credits-section">
           <h3 class="credits-section-title">Game Developer</h3>
           <p class="credits-name">mitchellcirey</p>
+          <a href="https://github.com/DMarine68" target="_blank" rel="noopener noreferrer" class="credits-link">DMarine68</a>
         </div>
         <div class="credits-section">
           <h3 class="credits-section-title">Repository</h3>
           <a href="https://github.com/mitchellcirey/Taskforge" target="_blank" rel="noopener noreferrer" class="credits-link">github.com/mitchellcirey/Taskforge</a>
         </div>
-        <div class="credits-section">
-          <h3 class="credits-section-title">Development Tools</h3>
-          <p class="credits-text">Cursor AI</p>
-        </div>
+        <p class="credits-tagline">An automation colony game by MidnightTwenty</p>
         <div class="credits-buttons">
           <button class="credits-button" id="close-credits-button">Close</button>
         </div>
@@ -104,6 +102,15 @@ export class CreditsMenu {
         text-transform: uppercase;
       }
 
+      .credits-tagline {
+        color: #1a1a1a;
+        font-size: 18px;
+        margin: 30px 0 0 0;
+        font-family: 'Arial', sans-serif;
+        font-style: italic;
+        opacity: 0.8;
+      }
+
       .credits-section {
         margin-bottom: 30px;
       }
@@ -137,7 +144,7 @@ export class CreditsMenu {
       .credits-link {
         color: #1a1a1a;
         font-size: 20px;
-        margin: 0;
+        margin: 8px 0 0 0;
         font-family: 'Arial', sans-serif;
         text-decoration: underline;
         display: inline-block;
