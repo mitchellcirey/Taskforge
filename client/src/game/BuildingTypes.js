@@ -14,14 +14,6 @@ export const BuildingTypes = {
     cost: { wood: 15, stone: 10 },
     size: { width: 1, height: 1 },
     color: 0x6B6B6B
-  },
-  CAMPFIRE: {
-    id: 'campfire',
-    name: 'Campfire',
-    description: 'A warm campfire with rising flames and smoke',
-    cost: { wood: 5, stone: 3 },
-    size: { width: 1, height: 1 },
-    color: 0xFF4500
   }
 };
 
