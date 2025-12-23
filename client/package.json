@@ -16,10 +16,11 @@
     "postinstall": "npm run build:dev"
   },
   "dependencies": {
+    "@babel/cli": "^7.28.3",
     "three": "^0.160.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.5",
+    "@babel/core": "^7.28.5",
     "@babel/node": "^7.28.0",
     "@babel/preset-env": "^7.23.5",
     "babel-loader": "^9.1.3",

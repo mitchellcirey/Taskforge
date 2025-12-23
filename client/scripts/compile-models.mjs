@@ -14,9 +14,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import item types - using default import to handle CommonJS/ES module interop
-import itemsModule from '../src/game/items/index.js';
-const { Wood, Stone, Stick, Axe, Pickaxe } = itemsModule;
+// Import item types
+import { Wood, Stone, Stick, Axe, Pickaxe } from '../src/game/items/index.js';
 
 // Output directory for compiled models
 const OUTPUT_DIR = path.join(__dirname, '../src/game/models/compiled');
