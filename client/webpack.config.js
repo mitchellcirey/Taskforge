@@ -40,7 +40,12 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         { from: 'public', to: 'public' },
-        { from: '../version.json', to: 'version.json' }
+        { from: '../version.json', to: 'version.json' },
+        { 
+          from: 'src/game/models/compiled', 
+          to: 'public/models/compiled',
+          noErrorOnMissing: true // Don't fail if directory doesn't exist yet
+        }
       ]
     })
   ],

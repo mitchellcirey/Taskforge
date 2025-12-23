@@ -1,3 +1,5 @@
+import { getItemType } from './ItemTypeRegistry.js';
+
 // Tool types that can only be placed in tool slots (1-2)
 const TOOL_TYPES = ['axe', 'pickaxe'];
 
@@ -71,9 +73,16 @@ export class Inventory {
       return false; // Tools must be manually assigned to tool slots
     }
 
-    // Special case: logs (wood) - can only carry 1 at a time
-    if (itemType === 'wood' && this.hasItem('wood')) {
-      return false; // Already carrying a log
+    // Check item type-specific restrictions
+    const itemTypeObj = getItemType(itemType);
+    if (itemTypeObj) {
+      const inventoryInfo = {
+        hasItem: (type, cnt) => this.hasItem(type, cnt),
+        getFirstItemType: () => this.getFirstItemType()
+      };
+      if (!itemTypeObj.canAddToInventory(inventoryInfo)) {
+        return false; // Item type has restrictions that prevent adding
+      }
     }
 
     // Check if inventory already has items - if so, only allow same type

@@ -233,3 +233,8 @@ app.on('window-all-closed', () => {
   }
 });
 
+// Handle quit request from renderer
+ipcMain.on('app-quit', () => {
+  app.quit();
+});
+

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WorldObject } from './WorldObject.js';
+import { getItemType } from './ItemTypeRegistry.js';
 
 export class Building extends WorldObject {
   constructor(scene, tileGrid, tileX, tileZ, buildingType) {
@@ -316,96 +317,22 @@ export class Building extends WorldObject {
     background.position.set(0, 0, -0.01); // Slightly below icon
     iconGroup.add(background);
     
-    switch (itemType) {
-      case 'wood':
-        const woodGeometry = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.5 * scale);
-        const woodMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x8B4513,
-          roughness: 0.7,
-          metalness: 0.2
-        });
-        const woodIcon = new THREE.Mesh(woodGeometry, woodMaterial);
-        iconGroup.add(woodIcon);
-        break;
-        
-      case 'stone':
-        const stoneGeometry = new THREE.BoxGeometry(0.4 * scale, 0.3 * scale, 0.4 * scale);
-        const stoneMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x808080,
-          roughness: 0.7,
-          metalness: 0.2
-        });
-        const stoneIcon = new THREE.Mesh(stoneGeometry, stoneMaterial);
-        iconGroup.add(stoneIcon);
-        break;
-        
-      case 'stick':
-        // 75% bigger sticks
-        const stickBodyGeometry = new THREE.CylinderGeometry(0.0875 * scale, 0.0875 * scale, 1.05 * scale, 6);
-        const stickMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x8B4513, // Darker brown for better visibility
-          roughness: 0.8,
-          metalness: 0.1,
-          flatShading: true
-        });
-        const stickBody = new THREE.Mesh(stickBodyGeometry, stickMaterial);
-        stickBody.rotation.z = Math.PI / 2;
-        iconGroup.add(stickBody);
-        
-        const branchGeometry = new THREE.CylinderGeometry(0.0525 * scale, 0.0525 * scale, 0.35 * scale, 6);
-        const branch = new THREE.Mesh(branchGeometry, stickMaterial);
-        branch.rotation.z = Math.PI / 4;
-        branch.position.set(-0.2625 * scale, 0.14 * scale, 0);
-        iconGroup.add(branch);
-        break;
-        
-      case 'axe':
-        const handleGeometry = new THREE.BoxGeometry(0.08 * scale, 0.6 * scale, 0.08 * scale);
-        const handleMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0xD2B48C,
-          roughness: 0.8,
-          metalness: 0.1,
-          flatShading: true
-        });
-        const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-        handle.position.set(0, 0.3 * scale, 0);
-        handle.rotation.z = Math.PI / 12;
-        iconGroup.add(handle);
-        
-        const headMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x808080,
-          roughness: 0.4,
-          metalness: 0.6,
-          flatShading: true
-        });
-        
-        const bladeGeometry = new THREE.BoxGeometry(0.25 * scale, 0.15 * scale, 0.08 * scale);
-        const blade = new THREE.Mesh(bladeGeometry, headMaterial);
-        blade.position.set(0.1 * scale, 0.45 * scale, 0);
-        iconGroup.add(blade);
-        
-        const pollGeometry = new THREE.BoxGeometry(0.12 * scale, 0.12 * scale, 0.12 * scale);
-        const poll = new THREE.Mesh(pollGeometry, headMaterial);
-        poll.position.set(-0.05 * scale, 0.45 * scale, 0);
-        iconGroup.add(poll);
-        
-        const eyeGeometry = new THREE.BoxGeometry(0.1 * scale, 0.15 * scale, 0.1 * scale);
-        const eye = new THREE.Mesh(eyeGeometry, headMaterial);
-        eye.position.set(0, 0.45 * scale, 0);
-        iconGroup.add(eye);
-        
-        iconGroup.rotation.x = Math.PI / 6;
-        break;
-        
-      default:
-        const defaultGeometry = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
-        const defaultMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0xFFFFFF,
-          roughness: 0.7,
-          metalness: 0.2
-        });
-        const defaultIcon = new THREE.Mesh(defaultGeometry, defaultMaterial);
-        iconGroup.add(defaultIcon);
+    // Get the item type from the registry
+    const itemTypeObj = getItemType(itemType);
+    if (itemTypeObj) {
+      // Use the item type's getIconModel method
+      const iconModel = itemTypeObj.getIconModel(scale);
+      iconGroup.add(iconModel);
+    } else {
+      // Fallback for unknown item types
+      const defaultGeometry = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
+      const defaultMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xFFFFFF,
+        roughness: 0.7,
+        metalness: 0.2
+      });
+      const defaultIcon = new THREE.Mesh(defaultGeometry, defaultMaterial);
+      iconGroup.add(defaultIcon);
     }
     
     // Position icon on top panel (crate height 1.2 + frame 0.06 - recess 0.001 = 1.259)

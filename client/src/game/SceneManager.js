@@ -6,6 +6,7 @@ import { InteractionManager } from './InteractionManager.js';
 import { Tree } from './Tree.js';
 import { Resource } from './Resource.js';
 import { Inventory } from './Inventory.js';
+import { HarvestResult } from './HarvestResult.js';
 import { HotbarUI } from '../ui/HotbarUI.js';
 import { BuildingManager } from './BuildingManager.js';
 import { BuildingPlacementUI } from '../ui/BuildingPlacementUI.js';
@@ -149,34 +150,16 @@ export class SceneManager {
       this.tileHighlighter
     );
 
-    // Hook tree chop to spawn resources
+    // Hook harvestable objects to process harvest results
     this.worldObjects.forEach(obj => {
-      if (obj instanceof Tree) {
-        const originalChop = obj.chop.bind(obj);
-        obj.chop = () => {
-          const result = originalChop();
-          if (result && result.type) {
-            // Spawn resources on tiles around tree position (resources will be centered on their tiles)
-            const treeTilePos = obj.getTilePosition();
-            if (treeTilePos) {
-              for (let i = 0; i < result.count; i++) {
-                // Find a nearby tile (within 1 tile radius)
-                const offsetX = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
-                const offsetZ = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
-                const nearbyTile = this.tileGrid.getTile(treeTilePos.tileX + offsetX, treeTilePos.tileZ + offsetZ);
-                if (nearbyTile && nearbyTile.walkable) {
-                  // Spawn at tile center - Resource constructor will center it on the tile
-                  this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.type);
-                } else {
-                  // Fallback to tree's tile if nearby tile is invalid
-                  const treeTile = this.tileGrid.getTile(treeTilePos.tileX, treeTilePos.tileZ);
-                  if (treeTile) {
-                    this.spawnResource(treeTile.worldX, treeTile.worldZ, result.type);
-                  }
-                }
-              }
-            }
+      if (obj.harvest && typeof obj.harvest === 'function') {
+        const originalHarvest = obj.harvest.bind(obj);
+        obj.harvest = () => {
+          const results = originalHarvest();
+          if (results && Array.isArray(results)) {
+            this.processHarvestResults(obj, results);
           }
+          return results;
         };
       }
     });
@@ -240,6 +223,81 @@ export class SceneManager {
       this.interactionManager.addObject(resource);
     }
     return resource;
+  }
+
+  /**
+   * Processes harvest results from a harvested object.
+   * Handles both world drops and inventory additions.
+   * @param {WorldObject} harvestedObject - The object that was harvested
+   * @param {HarvestResult[]} results - Array of harvest results
+   */
+  processHarvestResults(harvestedObject, results) {
+    if (!results || !Array.isArray(results)) return;
+
+    const objectTilePos = harvestedObject.getTilePosition();
+    if (!objectTilePos) return;
+
+    for (const result of results) {
+      if (!(result instanceof HarvestResult)) continue;
+
+      if (result.dropToWorld) {
+        // Drop to world - spawn resources on nearby tiles
+        for (let i = 0; i < result.count; i++) {
+          // Find a nearby tile (within 1 tile radius)
+          const offsetX = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
+          const offsetZ = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
+          const nearbyTile = this.tileGrid.getTile(objectTilePos.tileX + offsetX, objectTilePos.tileZ + offsetZ);
+          if (nearbyTile && nearbyTile.walkable) {
+            // Spawn at tile center - Resource constructor will center it on the tile
+            this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.itemType);
+          } else {
+            // Fallback to object's tile if nearby tile is invalid
+            const objectTile = this.tileGrid.getTile(objectTilePos.tileX, objectTilePos.tileZ);
+            if (objectTile) {
+              this.spawnResource(objectTile.worldX, objectTile.worldZ, result.itemType);
+            }
+          }
+        }
+      } else {
+        // Add to player inventory
+        if (this.player && this.player.inventory) {
+          const itemsNotAdded = [];
+          for (let i = 0; i < result.count; i++) {
+            if (!this.player.inventory.addItem(result.itemType, 1)) {
+              // If item couldn't be added (inventory restrictions, full, etc.), drop to world instead
+              itemsNotAdded.push(i);
+            }
+          }
+          
+          // Drop any items that couldn't be added to inventory
+          if (itemsNotAdded.length > 0) {
+            const objectTilePos = harvestedObject.getTilePosition();
+            if (objectTilePos) {
+              for (const _ of itemsNotAdded) {
+                // Find a nearby tile (within 1 tile radius)
+                const offsetX = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
+                const offsetZ = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
+                const nearbyTile = this.tileGrid.getTile(objectTilePos.tileX + offsetX, objectTilePos.tileZ + offsetZ);
+                if (nearbyTile && nearbyTile.walkable) {
+                  this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.itemType);
+                } else {
+                  // Fallback to object's tile if nearby tile is invalid
+                  const objectTile = this.tileGrid.getTile(objectTilePos.tileX, objectTilePos.tileZ);
+                  if (objectTile) {
+                    this.spawnResource(objectTile.worldX, objectTile.worldZ, result.itemType);
+                  }
+                }
+              }
+            }
+          }
+          
+          // Update hand item display
+          if (this.player.updateHandItem) {
+            this.player.updateHandItem();
+          }
+        }
+      }
+    }
   }
 
   spawnSticks(count) {

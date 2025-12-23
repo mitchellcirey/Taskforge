@@ -1,3 +1,5 @@
+import { Resource } from '../game/Resource.js';
+
 export class AdminMenu {
   constructor(container) {
     this.container = container;
@@ -22,6 +24,8 @@ export class AdminMenu {
           </div>
         </div>
         <div class="admin-buttons">
+          <button class="admin-button" id="move-to-nearest-resource-button">Move to Nearest Resource</button>
+          <button class="admin-button" id="move-to-nearest-stick-button">Move to Nearest Stick</button>
           <button class="admin-button" id="close-admin-button">Close</button>
         </div>
       </div>
@@ -220,6 +224,8 @@ export class AdminMenu {
   setupEventListeners() {
     const bypassToggle = this.element.querySelector('#admin-bypass-toggle');
     const closeButton = this.element.querySelector('#close-admin-button');
+    const moveToNearestResourceButton = this.element.querySelector('#move-to-nearest-resource-button');
+    const moveToNearestStickButton = this.element.querySelector('#move-to-nearest-stick-button');
 
     bypassToggle.addEventListener('change', (e) => {
       this.adminMode = e.target.checked;
@@ -229,6 +235,14 @@ export class AdminMenu {
 
     closeButton.addEventListener('click', () => {
       this.hide();
+    });
+
+    moveToNearestResourceButton.addEventListener('click', () => {
+      this.moveToNearestResource();
+    });
+
+    moveToNearestStickButton.addEventListener('click', () => {
+      this.moveToNearestStick();
     });
   }
 
@@ -250,6 +264,108 @@ export class AdminMenu {
   destroy() {
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
+    }
+  }
+
+  // Find nearest resource of any type and move player to it
+  moveToNearestResource() {
+    const gameInstance = window.gameInstance;
+    if (!gameInstance || !gameInstance.sceneManager || !gameInstance.sceneManager.player) {
+      console.warn('Game instance or player not available');
+      return;
+    }
+
+    const sceneManager = gameInstance.sceneManager;
+    const player = sceneManager.player;
+    const worldObjects = sceneManager.worldObjects;
+
+    // Find all resources
+    const resources = worldObjects.filter(obj => obj instanceof Resource);
+
+    if (resources.length === 0) {
+      console.log('No resources found in the world');
+      return;
+    }
+
+    // Get player's current tile position
+    const playerTilePos = player.getTilePosition();
+    if (!playerTilePos) {
+      console.warn('Could not get player tile position');
+      return;
+    }
+
+    // Find nearest resource
+    let nearestResource = null;
+    let nearestDistance = Infinity;
+
+    for (const resource of resources) {
+      const resourceTilePos = resource.getTilePosition();
+      const dx = resourceTilePos.tileX - playerTilePos.tileX;
+      const dz = resourceTilePos.tileZ - playerTilePos.tileZ;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestResource = resource;
+      }
+    }
+
+    if (nearestResource) {
+      const targetTilePos = nearestResource.getTilePosition();
+      player.moveTo(targetTilePos.tileX, targetTilePos.tileZ);
+      this.hide(); // Close admin menu after moving
+    }
+  }
+
+  // Find nearest stick and move player to it
+  moveToNearestStick() {
+    const gameInstance = window.gameInstance;
+    if (!gameInstance || !gameInstance.sceneManager || !gameInstance.sceneManager.player) {
+      console.warn('Game instance or player not available');
+      return;
+    }
+
+    const sceneManager = gameInstance.sceneManager;
+    const player = sceneManager.player;
+    const worldObjects = sceneManager.worldObjects;
+
+    // Find all stick resources
+    const sticks = worldObjects.filter(obj => 
+      obj instanceof Resource && obj.type === 'stick'
+    );
+
+    if (sticks.length === 0) {
+      console.log('No sticks found in the world');
+      return;
+    }
+
+    // Get player's current tile position
+    const playerTilePos = player.getTilePosition();
+    if (!playerTilePos) {
+      console.warn('Could not get player tile position');
+      return;
+    }
+
+    // Find nearest stick
+    let nearestStick = null;
+    let nearestDistance = Infinity;
+
+    for (const stick of sticks) {
+      const stickTilePos = stick.getTilePosition();
+      const dx = stickTilePos.tileX - playerTilePos.tileX;
+      const dz = stickTilePos.tileZ - playerTilePos.tileZ;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestStick = stick;
+      }
+    }
+
+    if (nearestStick) {
+      const targetTilePos = nearestStick.getTilePosition();
+      player.moveTo(targetTilePos.tileX, targetTilePos.tileZ);
+      this.hide(); // Close admin menu after moving
     }
   }
 }
