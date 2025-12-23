@@ -100,11 +100,11 @@ export class SceneManager {
     this.directionalLight.shadow.mapSize.width = 2048;
     this.directionalLight.shadow.mapSize.height = 2048;
     this.directionalLight.shadow.camera.near = 0.5;
-    this.directionalLight.shadow.camera.far = 1000; // Increased for much larger world (500x500 tiles)
-    this.directionalLight.shadow.camera.left = -500; // Increased for larger world
-    this.directionalLight.shadow.camera.right = 500;
-    this.directionalLight.shadow.camera.top = 500;
-    this.directionalLight.shadow.camera.bottom = -500;
+    this.directionalLight.shadow.camera.far = 500; // For 200x200 tile world
+    this.directionalLight.shadow.camera.left = -200; // For 200x200 tile world
+    this.directionalLight.shadow.camera.right = 200;
+    this.directionalLight.shadow.camera.top = 200;
+    this.directionalLight.shadow.camera.bottom = -200;
     this.scene.add(this.directionalLight);
 
     // Initialize day/night cycle system
@@ -113,13 +113,13 @@ export class SceneManager {
 
     // Step 4: Creating tile grid (20%)
     await reportProgress('Creating tile grid...', 30, 400);
-    // Larger map - 500x500 tiles for a more expansive world
-    this.tileGrid = new TileGrid(this.scene, 500, 500);
+    // Map size - 200x200 tiles
+    this.tileGrid = new TileGrid(this.scene, 200, 200);
     this.tileGrid.create();
 
     // Step 5: Creating terrain (30%)
     await reportProgress('Generating terrain...', 40, 500);
-    this.terrain = new Terrain(this.scene, this.tileGrid, 500, 500);
+    this.terrain = new Terrain(this.scene, this.tileGrid, 200, 200);
     this.terrain.create();
 
     // Create tile highlighter
@@ -177,13 +177,13 @@ export class SceneManager {
     );
 
     // Initialize camera controller with map bounds
-    // Map bounds: 500x500 tiles, each tile is 2 units, centered at origin
-    // World coordinates range from -500 to +500 (500 tiles * 2 units = 1000 units total)
+    // Map bounds: 200x200 tiles, each tile is 2 units, centered at origin
+    // World coordinates range from -200 to +200 (200 tiles * 2 units = 400 units total)
     const mapBounds = {
-      minX: -500,
-      maxX: 500,
-      minZ: -500,
-      maxZ: 500
+      minX: -200,
+      maxX: 200,
+      minZ: -200,
+      maxZ: 200
     };
     this.cameraController = new CameraController(this.camera, this.renderer.domElement, mapBounds);
     

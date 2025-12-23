@@ -22,7 +22,7 @@ export class CameraController {
     // Distance from focus point (controls zoom)
     this.distance = 40;
     this.minDistance = 10;
-    this.maxDistance = 40; // Reduced max zoom distance
+    this.maxDistance = 75; // Max zoom distance
     
     // Movement speeds (constant, no acceleration)
     this.panSpeed = 40.0; // units per second (increased for faster WASD movement)

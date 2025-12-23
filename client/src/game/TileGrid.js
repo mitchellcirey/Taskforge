@@ -24,10 +24,10 @@ export class TileGrid {
 
   /**
    * Generate biome patches matching Autonauts' style:
-   * - Random-shaped patches (not circular) with sharp boundaries
+   * - Random-shaped patches with jagged, organic blob-like edges
    * - Deterministic based on seed
-   * - Soil patches randomly scattered (mostly grass)
-   * - Only medium and large patches
+   * - Soil patches randomly scattered (80-85% grass)
+   * - Patch sizes: 5-10 tiles (small) to 20-30+ tiles (large)
    */
   generateBiomePatches() {
     const patches = {
@@ -38,20 +38,22 @@ export class TileGrid {
     const rng = this.seededRandom(this.seed);
     
     // Generate soil patches - mostly grass with random dirt patches
-    // ~1 patch per 600 tiles for good distribution
+    // ~1 patch per 600 tiles for more patches (still mostly grass)
     const numSoilPatches = Math.floor((this.width * this.height) / 600);
     for (let i = 0; i < numSoilPatches; i++) {
       // Random position anywhere on map
       const centerX = rng() * this.width;
       const centerZ = rng() * this.height;
       
-      // Only medium and large patches (no small patches) - smaller sizes
+      // Varied patch sizes matching Autonauts: larger patches
       const sizeRoll = rng();
       let size;
-      if (sizeRoll < 0.5) {
-        size = 3 + rng() * 2; // Medium patches (3-5 tiles) - 50%
+      if (sizeRoll < 0.4) {
+        size = 20 + rng() * 20; // Small patches (20-40 tiles) - 40%
+      } else if (sizeRoll < 0.75) {
+        size = 40 + rng() * 35; // Medium patches (40-75 tiles) - 35%
       } else {
-        size = 5 + rng() * 3; // Large patches (5-8 tiles) - 50%
+        size = 75 + rng() * 55; // Large patches (75-130 tiles) - 25%
       }
       
       // Store patch with center and size for random shape generation
@@ -144,62 +146,75 @@ export class TileGrid {
   /**
    * Create a single tile with Autonauts-style biome assignment
    * Each tile has a discrete type with sharp boundaries (no blending)
-   * - Mostly grass
-   * - Random-shaped dirt/soil patches (not circular)
+   * - Mostly grass (80-85%)
+   * - Random-shaped dirt/soil patches with jagged, organic blob-like edges
    */
   createTile(tileX, tileZ) {
-    // Check soil patches (random-shaped dirt patches - Autonauts style)
+    // Check soil patches (jagged, organic blob shapes - Autonauts style)
     let isSoil = false;
     for (const soilPatch of this.biomePatches.soil) {
-      // First check: tile must be within reasonable distance of patch center
-      // This limits the area but doesn't create circles
+      // Calculate distance from patch center for optimization
       const dx = tileX - soilPatch.x;
       const dz = tileZ - soilPatch.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
       
       // Skip if tile is way too far from center (optimization)
-      if (distance > soilPatch.size * 2.5) continue;
+      if (distance > soilPatch.size * 1.8) continue;
       
-      // Use noise to create random, irregular shapes within the area
-      // Multiple noise layers create organic, non-circular blob shapes
+      // Use multiple noise layers at different scales to create jagged, organic blob shapes
+      // This creates the irregular, non-circular edges seen in Autonauts
       const noise1 = this.noise(
-        tileX * 0.25 + soilPatch.seed,
-        tileZ * 0.25 + soilPatch.seed,
+        tileX * 0.3 + soilPatch.seed,
+        tileZ * 0.3 + soilPatch.seed,
         0.1
       );
       const noise2 = this.noise(
-        tileX * 0.4 + soilPatch.seed * 1.5,
-        tileZ * 0.4 + soilPatch.seed * 1.5,
+        tileX * 0.5 + soilPatch.seed * 1.7,
+        tileZ * 0.5 + soilPatch.seed * 1.7,
         0.15
       );
+      const noise3 = this.noise(
+        tileX * 0.8 + soilPatch.seed * 2.3,
+        tileZ * 0.8 + soilPatch.seed * 2.3,
+        0.2
+      );
       
-      // Combine noise with distance factor to create random blob shapes
-      // Closer to center = more likely, but noise makes it random
-      const normalizedDistance = Math.min(distance / (soilPatch.size * 1.5), 1.0);
+      // Combine multiple noise layers for organic, jagged blob shape
+      const combinedNoise = (noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2);
+      
+      // Use distance as a factor but noise creates the jagged edges
+      const normalizedDistance = Math.min(distance / soilPatch.size, 1.0);
       const distanceFactor = 1.0 - normalizedDistance;
-      const combinedNoise = (noise1 * 0.6 + noise2 * 0.4);
       
-      // Create random shape: combine distance factor with noise
-      // Higher threshold ensures only some tiles become dirt (not all)
-      const shapeFactor = distanceFactor * 0.4 + combinedNoise * 0.6;
+      // Combine: distance factor (30%) + noise (70%) for organic blob shapes
+      // Noise dominates to create jagged, irregular edges
+      const shapeFactor = distanceFactor * 0.3 + combinedNoise * 0.7;
       
-      // High threshold ensures mostly grass with scattered dirt patches
-      // Medium patches: threshold 0.75, Large patches: threshold 0.7
-      const threshold = soilPatch.size < 4 ? 0.75 : 0.7;
+      // Size-based threshold: larger patches need lower threshold
+      // Small (5-10): 0.8, Medium (10-20): 0.75, Large (20-35): 0.7
+      let threshold;
+      if (soilPatch.size < 10) {
+        threshold = 0.8;
+      } else if (soilPatch.size < 20) {
+        threshold = 0.75;
+      } else {
+        threshold = 0.7;
+      }
       
-      if (shapeFactor > threshold && distance < soilPatch.size * 2.0) {
+      // Create jagged blob shape - noise creates irregular boundaries
+      if (shapeFactor > threshold && distance < soilPatch.size * 1.5) {
         isSoil = true;
         break;
       }
     }
     
-    // Default to grass (most common - Autonauts style)
+    // Default to grass (80-85% of map - Autonauts style)
     const tileType = isSoil ? 'dirt' : 'grass';
 
     return {
       tileX: tileX,
       tileZ: tileZ,
-      type: tileType, // 'grass' or 'dirt' (soil)
+      type: tileType, // 'grass', 'dirt' (soil), or 'water'
       content: null, // Object on tile: 'tree', 'rock', null, etc.
       occupied: false, // Building occupies this tile
       walkable: true, // Can entities walk here

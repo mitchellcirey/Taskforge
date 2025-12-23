@@ -23,6 +23,14 @@ export class Terrain {
     
     // Materials for each biome type (Autonauts colors)
     this.materials = this.createBiomeMaterials();
+    
+    // Cliff and water groups
+    this.cliffGroup = null;
+    this.waterMesh = null;
+    
+    // Cliff configuration
+    this.cliffHeight = 8; // Height of cliff in units
+    this.cliffLayers = 6; // Number of horizontal layers for terraced effect
   }
 
   /**
@@ -30,7 +38,7 @@ export class Terrain {
    */
   createBiomeMaterials() {
     return {
-      // Grass - vibrant green, slightly textured
+      // Grass - vibrant green (Autonauts style)
       grass: new THREE.MeshStandardMaterial({
         color: 0x5A9A4A, // Autonauts grass green
         roughness: 0.9,
@@ -62,6 +70,40 @@ export class Terrain {
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.8
+      }),
+      
+      // Cliff materials - layered gradient from brown-orange to light grey/white
+      cliffTop: new THREE.MeshStandardMaterial({
+        color: 0xD4A574, // Brownish-orange at top
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      }),
+      cliffMid: new THREE.MeshStandardMaterial({
+        color: 0xB89A7A, // Medium brown
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      }),
+      cliffMidLight: new THREE.MeshStandardMaterial({
+        color: 0x9A8A7A, // Light brown-grey
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      }),
+      cliffBottom: new THREE.MeshStandardMaterial({
+        color: 0xD4D4D4, // Light grey/white at bottom
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      }),
+      
+      // Water material for the water plane
+      waterPlane: new THREE.MeshStandardMaterial({
+        color: 0x4A7C9E, // Vibrant blue water
+        roughness: 0.2,
+        metalness: 0.1,
+        side: THREE.DoubleSide
       }),
       
       // Tree Soil - darker brown for tree planting areas
@@ -179,6 +221,12 @@ export class Terrain {
     // Add terrain group to scene
     this.scene.add(this.terrainGroup);
     
+    // Create cliff faces at map edges
+    this.createCliffFaces();
+    
+    // Create water plane below the map
+    this.createWaterPlane();
+    
     console.log('Terrain created (Autonauts style):', {
       width: this.width,
       height: this.height,
@@ -186,6 +234,154 @@ export class Terrain {
       totalTiles: this.width * this.height,
       instancedMeshes: Array.from(this.instancedMeshes.keys())
     });
+  }
+  
+  /**
+   * Create 3D layered cliff faces at the edges of the map
+   * Matching Autonauts' terraced cliff appearance
+   */
+  createCliffFaces() {
+    // Remove existing cliff if it exists
+    if (this.cliffGroup) {
+      this.scene.remove(this.cliffGroup);
+      this.cliffGroup.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(mat => mat.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+      });
+    }
+    
+    this.cliffGroup = new THREE.Group();
+    this.cliffGroup.name = 'CliffFaces';
+    
+    const layerHeight = this.cliffHeight / this.cliffLayers;
+    const mapWidth = this.width * this.tileSize;
+    const mapHeight = this.height * this.tileSize;
+    
+    // Helper function to get cliff material based on layer (gradient effect)
+    const getCliffMaterial = (layerIndex) => {
+      const progress = layerIndex / this.cliffLayers; // 0 to 1
+      if (progress < 0.25) {
+        return this.materials.cliffTop; // Top layers: brownish-orange
+      } else if (progress < 0.5) {
+        return this.materials.cliffMid; // Mid-top: medium brown
+      } else if (progress < 0.75) {
+        return this.materials.cliffMidLight; // Mid-bottom: light brown-grey
+      } else {
+        return this.materials.cliffBottom; // Bottom layers: light grey/white
+      }
+    };
+    
+    const halfTile = this.tileSize / 2;
+    
+    // Create cliff faces for each edge
+    // North edge (z = 0, facing north) - negative Z direction
+    for (let tileX = 0; tileX < this.width; tileX++) {
+      const worldPos = this.tileGrid.getWorldPosition(tileX, 0);
+      for (let layer = 0; layer < this.cliffLayers; layer++) {
+        const y = -layer * layerHeight - layerHeight / 2;
+        const geometry = new THREE.PlaneGeometry(this.tileSize, layerHeight);
+        geometry.rotateY(Math.PI); // Face outward (north, negative Z)
+        const material = getCliffMaterial(layer);
+        const mesh = new THREE.Mesh(geometry, material);
+        // Position at the north edge of the tile (offset by half tile in -Z direction)
+        mesh.position.set(worldPos.x, y, worldPos.z - halfTile);
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        this.cliffGroup.add(mesh);
+      }
+    }
+    
+    // South edge (z = height-1, facing south) - positive Z direction
+    for (let tileX = 0; tileX < this.width; tileX++) {
+      const worldPos = this.tileGrid.getWorldPosition(tileX, this.height - 1);
+      for (let layer = 0; layer < this.cliffLayers; layer++) {
+        const y = -layer * layerHeight - layerHeight / 2;
+        const geometry = new THREE.PlaneGeometry(this.tileSize, layerHeight);
+        // Face outward (south, positive Z) - default plane faces +Z
+        const material = getCliffMaterial(layer);
+        const mesh = new THREE.Mesh(geometry, material);
+        // Position at the south edge of the tile (offset by half tile in +Z direction)
+        mesh.position.set(worldPos.x, y, worldPos.z + halfTile);
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        this.cliffGroup.add(mesh);
+      }
+    }
+    
+    // West edge (x = 0, facing west) - negative X direction
+    for (let tileZ = 0; tileZ < this.height; tileZ++) {
+      const worldPos = this.tileGrid.getWorldPosition(0, tileZ);
+      for (let layer = 0; layer < this.cliffLayers; layer++) {
+        const y = -layer * layerHeight - layerHeight / 2;
+        const geometry = new THREE.PlaneGeometry(this.tileSize, layerHeight);
+        geometry.rotateY(Math.PI / 2); // Face outward (west, negative X)
+        const material = getCliffMaterial(layer);
+        const mesh = new THREE.Mesh(geometry, material);
+        // Position at the west edge of the tile (offset by half tile in -X direction)
+        mesh.position.set(worldPos.x - halfTile, y, worldPos.z);
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        this.cliffGroup.add(mesh);
+      }
+    }
+    
+    // East edge (x = width-1, facing east) - positive X direction
+    for (let tileZ = 0; tileZ < this.height; tileZ++) {
+      const worldPos = this.tileGrid.getWorldPosition(this.width - 1, tileZ);
+      for (let layer = 0; layer < this.cliffLayers; layer++) {
+        const y = -layer * layerHeight - layerHeight / 2;
+        const geometry = new THREE.PlaneGeometry(this.tileSize, layerHeight);
+        geometry.rotateY(-Math.PI / 2); // Face outward (east, positive X)
+        const material = getCliffMaterial(layer);
+        const mesh = new THREE.Mesh(geometry, material);
+        // Position at the east edge of the tile (offset by half tile in +X direction)
+        mesh.position.set(worldPos.x + halfTile, y, worldPos.z);
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        this.cliffGroup.add(mesh);
+      }
+    }
+    
+    this.scene.add(this.cliffGroup);
+  }
+  
+  /**
+   * Create water plane below the map
+   * Matching Autonauts' water appearance
+   */
+  createWaterPlane() {
+    // Remove existing water if it exists
+    if (this.waterMesh) {
+      this.scene.remove(this.waterMesh);
+      if (this.waterMesh.geometry) this.waterMesh.geometry.dispose();
+      if (this.waterMesh.material) this.waterMesh.material.dispose();
+    }
+    
+    // Calculate map bounds
+    const mapWidth = this.width * this.tileSize;
+    const mapHeight = this.height * this.tileSize;
+    
+    // Make water plane larger than the map to extend beyond edges
+    const waterSize = Math.max(mapWidth, mapHeight) * 1.5;
+    const waterGeometry = new THREE.PlaneGeometry(waterSize, waterSize);
+    waterGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat
+    
+    // Position water below the cliff
+    const waterY = -this.cliffHeight - 0.5; // Slightly below the cliff bottom
+    
+    // Map center is at (0, 0) in world coordinates (TileGrid centers the map)
+    this.waterMesh = new THREE.Mesh(waterGeometry, this.materials.waterPlane);
+    this.waterMesh.position.set(0, waterY, 0);
+    this.waterMesh.receiveShadow = true;
+    this.waterMesh.name = 'WaterPlane';
+    
+    this.scene.add(this.waterMesh);
   }
 
   /**
@@ -223,6 +419,30 @@ export class Terrain {
         }
       });
       this.terrainGroup = null;
+    }
+    
+    // Dispose cliff group
+    if (this.cliffGroup) {
+      this.scene.remove(this.cliffGroup);
+      this.cliffGroup.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(mat => mat.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+      });
+      this.cliffGroup = null;
+    }
+    
+    // Dispose water mesh
+    if (this.waterMesh) {
+      this.scene.remove(this.waterMesh);
+      if (this.waterMesh.geometry) this.waterMesh.geometry.dispose();
+      if (this.waterMesh.material) this.waterMesh.material.dispose();
+      this.waterMesh = null;
     }
     
     // Dispose materials
