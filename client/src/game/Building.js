@@ -10,12 +10,21 @@ export class Building extends WorldObject {
     this.inventory = null; // For storage buildings
     this.itemIconMesh = null; // For storage item icon display
     this.flashAnimation = null; // For red flashing when full
+    // Campfire animation properties
+    this.flames = [];
+    this.smokeParticles = null;
+    this.smokeGeometry = null;
+    this.smokeMaterial = null;
+    this.fireLight = null;
+    this.animationTime = 0;
     this.create();
   }
 
   create() {
     if (this.buildingType === 'storage') {
       this.createStorageContainer();
+    } else if (this.buildingType === 'campfire') {
+      this.createCampfire();
     } else {
       // Default building creation
       const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -201,6 +210,163 @@ export class Building extends WorldObject {
     // Question mark placeholder (will be replaced by item icon)
     // Create after mesh is set
     this.createQuestionMark();
+  }
+
+  createCampfire() {
+    const campfireGroup = new THREE.Group();
+    
+    // Fire pit base - stones arranged in a circle
+    const stoneColor = 0x696969; // Dim gray
+    const stoneMaterial = new THREE.MeshStandardMaterial({
+      color: stoneColor,
+      roughness: 0.9,
+      metalness: 0.1
+    });
+    
+    // Create 8 stones arranged in a circle
+    const stoneCount = 8;
+    const pitRadius = 0.35;
+    for (let i = 0; i < stoneCount; i++) {
+      const angle = (i / stoneCount) * Math.PI * 2;
+      const stoneSize = 0.08 + Math.random() * 0.04; // Vary stone sizes
+      const stoneGeometry = new THREE.BoxGeometry(stoneSize, 0.12, stoneSize);
+      const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
+      const x = Math.cos(angle) * pitRadius;
+      const z = Math.sin(angle) * pitRadius;
+      stone.position.set(x, 0.06, z);
+      stone.rotation.y = Math.random() * Math.PI * 2; // Random rotation
+      stone.castShadow = true;
+      stone.receiveShadow = true;
+      campfireGroup.add(stone);
+    }
+    
+    // Logs arranged in the center (3-4 logs)
+    const logColor = 0x4A2C2A; // Dark brown
+    const logMaterial = new THREE.MeshStandardMaterial({
+      color: logColor,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    
+    const logCount = 4;
+    const logPositions = [
+      { x: -0.1, z: 0, angle: 0 },
+      { x: 0.1, z: 0, angle: Math.PI / 2 },
+      { x: 0, z: -0.1, angle: Math.PI / 4 },
+      { x: 0, z: 0.1, angle: -Math.PI / 4 }
+    ];
+    
+    for (let i = 0; i < logCount; i++) {
+      const logGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.15, 8);
+      const log = new THREE.Mesh(logGeometry, logMaterial);
+      const pos = logPositions[i];
+      log.position.set(pos.x, 0.075, pos.z);
+      log.rotation.z = pos.angle;
+      log.rotation.x = Math.PI / 2;
+      log.castShadow = true;
+      log.receiveShadow = true;
+      campfireGroup.add(log);
+    }
+    
+    // Create animated flames (4-5 flame meshes)
+    this.flames = [];
+    const flameCount = 5;
+    const flameBasePositions = [
+      { x: -0.08, z: -0.05 },
+      { x: 0.08, z: -0.05 },
+      { x: 0, z: 0 },
+      { x: -0.05, z: 0.08 },
+      { x: 0.05, z: 0.08 }
+    ];
+    
+    for (let i = 0; i < flameCount; i++) {
+      // Create flame using a cone geometry
+      const flameGeometry = new THREE.ConeGeometry(0.04, 0.15, 8);
+      const flameMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF6600, // Orange
+        emissive: 0xFF4400,
+        emissiveIntensity: 1.0,
+        transparent: true,
+        opacity: 0.9
+      });
+      
+      const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+      const basePos = flameBasePositions[i] || { x: 0, z: 0 };
+      flame.position.set(basePos.x, 0.15, basePos.z);
+      flame.castShadow = false; // Flames don't cast shadows
+      flame.receiveShadow = false;
+      
+      // Store animation properties
+      flame.userData = {
+        baseY: 0.15,
+        baseX: basePos.x,
+        baseZ: basePos.z,
+        phase: Math.random() * Math.PI * 2, // Random phase for variation
+        speed: 2 + Math.random() * 2 // Random speed
+      };
+      
+      campfireGroup.add(flame);
+      this.flames.push(flame);
+    }
+    
+    // Create smoke particle system
+    const smokeParticleCount = 25;
+    this.smokeGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(smokeParticleCount * 3);
+    const velocities = new Float32Array(smokeParticleCount * 3);
+    const lifetimes = new Float32Array(smokeParticleCount);
+    const sizes = new Float32Array(smokeParticleCount);
+    
+    // Initialize particles
+    for (let i = 0; i < smokeParticleCount; i++) {
+      const i3 = i * 3;
+      // Start at random positions near fire center
+      positions[i3] = (Math.random() - 0.5) * 0.2;
+      positions[i3 + 1] = 0.2 + Math.random() * 0.1;
+      positions[i3 + 2] = (Math.random() - 0.5) * 0.2;
+      
+      // Random velocities (rising with slight drift)
+      velocities[i3] = (Math.random() - 0.5) * 0.02;
+      velocities[i3 + 1] = 0.3 + Math.random() * 0.2;
+      velocities[i3 + 2] = (Math.random() - 0.5) * 0.02;
+      
+      // Random lifetimes
+      lifetimes[i] = Math.random();
+      
+      // Random sizes
+      sizes[i] = 0.05 + Math.random() * 0.05;
+    }
+    
+    this.smokeGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.smokeGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+    this.smokeGeometry.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
+    this.smokeGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    
+    // Create smoke material
+    this.smokeMaterial = new THREE.PointsMaterial({
+      color: 0x888888,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.6,
+      sizeAttenuation: true,
+      blending: THREE.AdditiveBlending
+    });
+    
+    this.smokeParticles = new THREE.Points(this.smokeGeometry, this.smokeMaterial);
+    campfireGroup.add(this.smokeParticles);
+    
+    // Add flickering point light for fire glow
+    this.fireLight = new THREE.PointLight(0xFF6600, 1.5, 5);
+    this.fireLight.position.set(0, 0.2, 0);
+    this.fireLight.castShadow = false; // Point lights can be expensive for shadows
+    campfireGroup.add(this.fireLight);
+    
+    // Set main mesh
+    this.mesh = campfireGroup;
+    this.mesh.position.set(this.worldX, 0, this.worldZ);
+    this.mesh.castShadow = true;
+    this.mesh.receiveShadow = true;
+    this.scene.add(this.mesh);
   }
 
   createQuestionMark() {
@@ -505,9 +671,123 @@ export class Building extends WorldObject {
     return this.buildingType;
   }
 
+  update(deltaTime) {
+    // Only update campfire animations
+    if (this.buildingType !== 'campfire') return;
+    
+    this.animationTime += deltaTime;
+    
+    // Animate flames
+    if (this.flames && this.flames.length > 0) {
+      this.flames.forEach((flame, index) => {
+        const userData = flame.userData;
+        if (!userData) return;
+        
+        // Oscillate scale (pulsing effect)
+        const scaleVariation = 0.2 + 0.1 * Math.sin(this.animationTime * userData.speed + userData.phase);
+        flame.scale.set(1 + scaleVariation, 1 + scaleVariation * 1.5, 1 + scaleVariation);
+        
+        // Flicker position (slight movement)
+        const flickerX = (Math.random() - 0.5) * 0.02;
+        const flickerZ = (Math.random() - 0.5) * 0.02;
+        const flickerY = 0.05 * Math.sin(this.animationTime * userData.speed * 0.5 + userData.phase);
+        flame.position.set(
+          userData.baseX + flickerX,
+          userData.baseY + flickerY,
+          userData.baseZ + flickerZ
+        );
+        
+        // Animate emissive intensity
+        const intensity = 0.8 + 0.3 * Math.sin(this.animationTime * userData.speed * 1.5 + userData.phase);
+        flame.material.emissiveIntensity = Math.max(0.5, intensity);
+      });
+    }
+    
+    // Animate smoke particles
+    if (this.smokeParticles && this.smokeGeometry) {
+      const positions = this.smokeGeometry.attributes.position;
+      const velocities = this.smokeGeometry.attributes.velocity;
+      const lifetimes = this.smokeGeometry.attributes.lifetime;
+      const sizes = this.smokeGeometry.attributes.size;
+      
+      if (positions && velocities && lifetimes && sizes) {
+        const maxHeight = 3.0; // Max height before recycling
+        
+        for (let i = 0; i < positions.count; i++) {
+          const i3 = i * 3;
+          
+          // Update position based on velocity
+          positions.array[i3] += velocities.array[i3] * deltaTime;
+          positions.array[i3 + 1] += velocities.array[i3 + 1] * deltaTime;
+          positions.array[i3 + 2] += velocities.array[i3 + 2] * deltaTime;
+          
+          // Update lifetime
+          lifetimes.array[i] += deltaTime * 0.5;
+          
+          // Add slight drift (wind effect)
+          positions.array[i3] += (Math.random() - 0.5) * 0.01 * deltaTime;
+          positions.array[i3 + 2] += (Math.random() - 0.5) * 0.01 * deltaTime;
+          
+          // Recycle particles that have risen too high
+          if (positions.array[i3 + 1] > maxHeight || lifetimes.array[i] > 1.0) {
+            // Reset particle to base position
+            positions.array[i3] = (Math.random() - 0.5) * 0.2;
+            positions.array[i3 + 1] = 0.2 + Math.random() * 0.1;
+            positions.array[i3 + 2] = (Math.random() - 0.5) * 0.2;
+            
+            // Reset velocity
+            velocities.array[i3] = (Math.random() - 0.5) * 0.02;
+            velocities.array[i3 + 1] = 0.3 + Math.random() * 0.2;
+            velocities.array[i3 + 2] = (Math.random() - 0.5) * 0.02;
+            
+            // Reset lifetime
+            lifetimes.array[i] = 0;
+          }
+          
+          // Update size based on height (grow as it rises)
+          const heightRatio = positions.array[i3 + 1] / maxHeight;
+          sizes.array[i] = (0.05 + Math.random() * 0.05) * (1 + heightRatio * 2);
+        }
+        
+        // Mark attributes as needing update
+        positions.needsUpdate = true;
+        sizes.needsUpdate = true;
+      }
+    }
+    
+    // Animate fire light intensity (flickering)
+    if (this.fireLight) {
+      const baseIntensity = 1.5;
+      const flicker = 0.3 * Math.sin(this.animationTime * 8) + 0.2 * Math.sin(this.animationTime * 13);
+      this.fireLight.intensity = baseIntensity + flicker;
+      
+      // Slight color variation
+      const colorVariation = 0.1 * Math.sin(this.animationTime * 5);
+      this.fireLight.color.setRGB(
+        Math.min(1, 1.0 + colorVariation),
+        Math.min(1, 0.4 + colorVariation * 0.5),
+        Math.max(0, 0.0 + colorVariation * 0.3)
+      );
+    }
+  }
+
   remove() {
     // Clean up flashing animation
     this.stopFlashing();
+    
+    // Clean up campfire resources
+    if (this.buildingType === 'campfire') {
+      if (this.smokeGeometry) {
+        this.smokeGeometry.dispose();
+      }
+      if (this.smokeMaterial) {
+        this.smokeMaterial.dispose();
+      }
+      if (this.fireLight) {
+        this.scene.remove(this.fireLight);
+      }
+    }
+    
     super.remove();
   }
 }

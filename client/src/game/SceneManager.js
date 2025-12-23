@@ -632,6 +632,15 @@ export class SceneManager {
       this.villagerManager.update(deltaTime);
     }
 
+    // Update buildings (for animated effects like campfire)
+    if (this.buildingManager && this.buildingManager.buildings) {
+      this.buildingManager.buildings.forEach(building => {
+        if (building.update && typeof building.update === 'function') {
+          building.update(deltaTime);
+        }
+      });
+    }
+
     // Render scene
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);
