@@ -9,6 +9,7 @@ export class MainMenu {
     this.onAchievementsCallback = null;
     this.onSettingsCallback = null;
     this.onCreditsCallback = null;
+    this.onCharacterCallback = null;
     this.create();
   }
 
@@ -34,6 +35,9 @@ export class MainMenu {
           <div class="menu-button-group secondary-actions">
             <button class="menu-button secondary" id="achievements-button">
               <span class="button-text">Achievements</span>
+            </button>
+            <button class="menu-button secondary" id="character-button">
+              <span class="button-text">Character</span>
             </button>
             <button class="menu-button secondary" id="settings-button">
               <span class="button-text">Settings</span>
@@ -336,6 +340,7 @@ export class MainMenu {
     const playButton = this.element.querySelector('#play-button');
     const resumeLastSaveButton = this.element.querySelector('#resume-last-save-button');
     const achievementsButton = this.element.querySelector('#achievements-button');
+    const characterButton = this.element.querySelector('#character-button');
     const settingsButton = this.element.querySelector('#settings-button');
     const creditsButton = this.element.querySelector('#credits-button');
     const quitButton = this.element.querySelector('#quit-button');
@@ -355,6 +360,12 @@ export class MainMenu {
     achievementsButton.addEventListener('click', () => {
       if (this.onAchievementsCallback) {
         this.onAchievementsCallback();
+      }
+    });
+
+    characterButton.addEventListener('click', () => {
+      if (this.onCharacterCallback) {
+        this.onCharacterCallback();
       }
     });
 
@@ -410,6 +421,10 @@ export class MainMenu {
 
   onCredits(callback) {
     this.onCreditsCallback = callback;
+  }
+
+  onCharacter(callback) {
+    this.onCharacterCallback = callback;
   }
 
   destroy() {

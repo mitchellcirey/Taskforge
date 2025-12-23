@@ -4,6 +4,7 @@ import { MainMenu } from '../ui/MainMenu.js';
 import { PauseMenu } from '../ui/PauseMenu.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
 import { CreditsMenu } from '../ui/CreditsMenu.js';
+import { CharacterMenu } from '../ui/CharacterMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
 import { SaveLoadDialog } from '../ui/SaveLoadDialog.js';
@@ -24,6 +25,7 @@ export class Game {
     this.pauseMenu = null;
     this.settingsMenu = null;
     this.creditsMenu = null;
+    this.characterMenu = null;
     this.adminMenu = null;
     // Store game instance globally for access from other modules
     window.gameInstance = this;
@@ -125,12 +127,28 @@ export class Game {
         this.creditsMenu.show();
       }
     });
+    this.mainMenu.onCharacter(() => {
+      // Show character menu and hide main menu
+      this.mainMenu.hide();
+      if (this.characterMenu) {
+        this.characterMenu.show();
+      }
+    });
     this.mainMenu.show();
 
     // Create credits menu
     this.creditsMenu = new CreditsMenu(this.container);
     this.creditsMenu.onClose(() => {
       // Return to main menu when credits is closed
+      if (this.gameState.getState() === GameState.MENU) {
+        this.mainMenu.show();
+      }
+    });
+
+    // Create character menu
+    this.characterMenu = new CharacterMenu(this.container);
+    this.characterMenu.onClose(() => {
+      // Return to main menu when character menu is closed
       if (this.gameState.getState() === GameState.MENU) {
         this.mainMenu.show();
       }
@@ -198,6 +216,11 @@ export class Game {
       this.showLoadDialog();
     });
     this.playSubmenu.onMultiplayer(() => {
+      // Check if character name is set
+      if (!this.checkCharacterName()) {
+        this.showCharacterNameWarning();
+        return;
+      }
       // Placeholder for multiplayer
       console.log('Multiplayer clicked');
       // TODO: Implement multiplayer functionality
@@ -235,6 +258,34 @@ export class Game {
     this.gameLoop();
   }
 
+  checkCharacterName() {
+    try {
+      const characterName = localStorage.getItem('taskforge_characterName');
+      return characterName && characterName.trim() !== '';
+    } catch (error) {
+      console.warn('Failed to check character name:', error);
+      return false;
+    }
+  }
+
+  showCharacterNameWarning() {
+    const message = 'Please set a character name before joining a game. Go to Character in the main menu.';
+    const userChoice = confirm(message + '\n\nWould you like to go to Character menu now?');
+    if (userChoice) {
+      // Show character menu
+      if (this.mainMenu) {
+        this.mainMenu.hide();
+      }
+      if (this.playSubmenu) {
+        this.playSubmenu.hide();
+      }
+      if (this.characterMenu) {
+        this.characterMenu.show();
+      }
+    }
+    return userChoice;
+  }
+
   handleStateChange(newState, oldState) {
     // Automatically manage menu music based on game state
     if (newState === GameState.MENU) {
@@ -250,6 +301,12 @@ export class Game {
   }
 
   async startGame() {
+    // Check if character name is set
+    if (!this.checkCharacterName()) {
+      this.showCharacterNameWarning();
+      return;
+    }
+
     this.gameState.setState(GameState.LOADING);
     this.mainMenu.hide();
 
@@ -439,6 +496,12 @@ export class Game {
   }
 
   async resumeLastSave() {
+    // Check if character name is set
+    if (!this.checkCharacterName()) {
+      this.showCharacterNameWarning();
+      return;
+    }
+
     try {
       // Get most recent save file
       if (!window.electronAPI || !window.electronAPI.listSaveFiles) {
@@ -482,6 +545,12 @@ export class Game {
   async loadWorld(filePath) {
     if (!filePath) {
       console.error('No file path provided to loadWorld');
+      return;
+    }
+
+    // Check if character name is set
+    if (!this.checkCharacterName()) {
+      this.showCharacterNameWarning();
       return;
     }
 
