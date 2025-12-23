@@ -1,11 +1,18 @@
 export class SettingsMenu {
-  constructor(container, tileGrid = null) {
+  constructor(container, tileGrid = null, audioManager = null) {
     this.container = container;
     this.tileGrid = tileGrid;
+    this.audioManager = audioManager;
     this.element = null;
     this.gridVisible = true; // Default to visible
+    this.musicVolume = 0.5;
+    this.sfxVolume = 0.7;
+    this.musicMuted = false;
+    this.sfxMuted = false;
+    this.activeTab = 'general';
     this.onCloseCallback = null;
     this.loadSettings(); // Load saved settings
+    this.loadAudioSettings(); // Load audio settings
     this.create();
   }
 
@@ -28,6 +35,43 @@ export class SettingsMenu {
     }
   }
 
+  loadAudioSettings() {
+    try {
+      const savedMusicVolume = localStorage.getItem('taskforge_musicVolume');
+      if (savedMusicVolume !== null) {
+        this.musicVolume = parseFloat(savedMusicVolume);
+      }
+      
+      const savedSfxVolume = localStorage.getItem('taskforge_sfxVolume');
+      if (savedSfxVolume !== null) {
+        this.sfxVolume = parseFloat(savedSfxVolume);
+      }
+      
+      const savedMusicMuted = localStorage.getItem('taskforge_musicMuted');
+      if (savedMusicMuted !== null) {
+        this.musicMuted = savedMusicMuted === 'true';
+      }
+      
+      const savedSfxMuted = localStorage.getItem('taskforge_sfxMuted');
+      if (savedSfxMuted !== null) {
+        this.sfxMuted = savedSfxMuted === 'true';
+      }
+    } catch (error) {
+      console.warn('Failed to load audio settings:', error);
+    }
+  }
+
+  saveAudioSettings() {
+    try {
+      localStorage.setItem('taskforge_musicVolume', this.musicVolume.toString());
+      localStorage.setItem('taskforge_sfxVolume', this.sfxVolume.toString());
+      localStorage.setItem('taskforge_musicMuted', this.musicMuted.toString());
+      localStorage.setItem('taskforge_sfxMuted', this.sfxMuted.toString());
+    } catch (error) {
+      console.warn('Failed to save audio settings:', error);
+    }
+  }
+
   create() {
     this.element = document.createElement('div');
     this.element.id = 'settings-menu';
@@ -35,19 +79,63 @@ export class SettingsMenu {
       <div class="settings-background"></div>
       <div class="settings-content">
         <h2 class="settings-title">Settings</h2>
-        <div class="settings-options">
-          ${this.tileGrid ? `
-          <div class="settings-option">
-            <label class="settings-label">Show Grid</label>
-            <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
-              ${this.gridVisible ? 'On' : 'Off'}
-            </button>
+        <div class="settings-tabs">
+          <button class="settings-tab ${this.activeTab === 'general' ? 'active' : ''}" data-tab="general">General</button>
+          <button class="settings-tab ${this.activeTab === 'audio' ? 'active' : ''}" data-tab="audio">Audio</button>
+          <button class="settings-tab ${this.activeTab === 'display' ? 'active' : ''}" data-tab="display">Display</button>
+        </div>
+        <div class="settings-tab-content">
+          <div class="tab-panel ${this.activeTab === 'general' ? 'active' : ''}" id="general-tab">
+            <div class="settings-options">
+              ${this.tileGrid ? `
+              <div class="settings-option">
+                <span class="settings-label">Show Grid</span>
+                <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
+                  ${this.gridVisible ? 'On' : 'Off'}
+                </button>
+              </div>
+              ` : `
+              <div class="settings-option">
+                <p class="settings-info">Game settings will be available after starting a game.</p>
+              </div>
+              `}
+            </div>
           </div>
-          ` : `
-          <div class="settings-option">
-            <p class="settings-info">Game settings will be available after starting a game.</p>
+          <div class="tab-panel ${this.activeTab === 'audio' ? 'active' : ''}" id="audio-tab">
+            <div class="settings-options">
+              <div class="settings-option audio-option">
+                <div class="audio-control-row">
+                  <span class="settings-label">Game Volume</span>
+                  <div class="audio-controls">
+                    <input type="range" class="volume-slider" id="sfx-volume-slider" min="0" max="100" value="${Math.round(this.sfxVolume * 100)}">
+                    <label class="mute-checkbox-label">
+                      <input type="checkbox" class="mute-checkbox" id="sfx-mute-checkbox" ${!this.sfxMuted ? 'checked' : ''}>
+                      <span class="mute-checkbox-icon"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-option audio-option">
+                <div class="audio-control-row">
+                  <span class="settings-label">Music Volume</span>
+                  <div class="audio-controls">
+                    <input type="range" class="volume-slider" id="music-volume-slider" min="0" max="100" value="${Math.round(this.musicVolume * 100)}">
+                    <label class="mute-checkbox-label">
+                      <input type="checkbox" class="mute-checkbox" id="music-mute-checkbox" ${!this.musicMuted ? 'checked' : ''}>
+                      <span class="mute-checkbox-icon"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          `}
+          <div class="tab-panel ${this.activeTab === 'display' ? 'active' : ''}" id="display-tab">
+            <div class="settings-options">
+              <div class="settings-option">
+                <p class="settings-info">Coming soon...</p>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="settings-buttons">
           <button class="settings-button" id="close-settings-button">Close</button>
@@ -128,6 +216,50 @@ export class SettingsMenu {
         text-transform: uppercase;
       }
 
+      .settings-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #34495e;
+      }
+
+      .settings-tab {
+        flex: 1;
+        padding: 12px 20px;
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #1a1a1a;
+        font-size: 16px;
+        font-family: 'Arial', sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .settings-tab:hover {
+        background: rgba(52, 73, 94, 0.1);
+      }
+
+      .settings-tab.active {
+        border-bottom-color: #34495e;
+        color: #34495e;
+      }
+
+      .settings-tab-content {
+        min-height: 200px;
+      }
+
+      .tab-panel {
+        display: none;
+      }
+
+      .tab-panel.active {
+        display: block;
+      }
+
       .settings-options {
         display: flex;
         flex-direction: column;
@@ -139,33 +271,129 @@ export class SettingsMenu {
 
       .settings-option {
         width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
 
       .settings-label {
-        display: block;
         color: #1a1a1a !important;
         font-size: 18px;
-        margin-bottom: 12px;
         font-family: 'Arial', sans-serif;
         font-weight: 600;
+        flex-shrink: 0;
+      }
+
+      .audio-option {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .audio-control-row {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .audio-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+        justify-content: flex-end;
+      }
+
+      .volume-slider {
+        flex: 1;
+        max-width: 200px;
+        height: 6px;
+        border-radius: 3px;
+        background: #e0e0e0;
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #34495e;
+        cursor: pointer;
+      }
+
+      .volume-slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #34495e;
+        cursor: pointer;
+        border: none;
+      }
+
+      .mute-checkbox-label {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+        width: 24px;
+        height: 24px;
+      }
+
+      .mute-checkbox {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        width: 24px;
+        height: 24px;
+        margin: 0;
+      }
+
+      .mute-checkbox-icon {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 24px;
+        height: 24px;
+        border: 2px solid #1a1a1a;
+        transform: rotate(45deg);
+        transition: all 0.2s ease;
+      }
+
+      .mute-checkbox:checked + .mute-checkbox-icon {
+        background: #6FD6FF;
+        border-color: #6FD6FF;
+      }
+
+      .mute-checkbox:checked + .mute-checkbox-icon::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-45deg);
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
       }
 
       .grid-toggle-button {
         position: relative;
         background: rgba(231, 76, 60, 0.9);
-        border: 3px solid #e74c3c;
-        border-radius: 8px;
+        border: 2px solid #e74c3c;
+        border-radius: 6px;
         color: #ffffff;
-        font-size: 18px;
-        padding: 12px 40px;
-        min-width: 100px;
+        font-size: 16px;
+        padding: 6px 16px;
+        min-width: 60px;
         cursor: pointer;
         transition: all 0.2s ease;
         font-family: 'Arial', sans-serif;
         font-weight: 600;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
         overflow: hidden;
       }
 
@@ -283,6 +511,10 @@ export class SettingsMenu {
 
     this.setupEventListeners();
     this.setupKeyboardListener();
+    // Apply audio settings on creation
+    if (this.audioManager) {
+      this.applyAudioSettings();
+    }
   }
 
   setupKeyboardListener() {
@@ -299,7 +531,21 @@ export class SettingsMenu {
   setupEventListeners() {
     const gridToggle = this.element.querySelector('#grid-toggle');
     const closeButton = this.element.querySelector('#close-settings-button');
+    const tabButtons = this.element.querySelectorAll('.settings-tab');
+    const sfxVolumeSlider = this.element.querySelector('#sfx-volume-slider');
+    const musicVolumeSlider = this.element.querySelector('#music-volume-slider');
+    const sfxMuteCheckbox = this.element.querySelector('#sfx-mute-checkbox');
+    const musicMuteCheckbox = this.element.querySelector('#music-mute-checkbox');
 
+    // Tab switching
+    tabButtons.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+        this.switchTab(tabName);
+      });
+    });
+
+    // Grid toggle
     if (gridToggle) {
       gridToggle.addEventListener('click', () => {
         this.gridVisible = !this.gridVisible;
@@ -309,10 +555,72 @@ export class SettingsMenu {
       });
     }
 
+    // Audio volume sliders
+    if (sfxVolumeSlider) {
+      sfxVolumeSlider.addEventListener('input', (e) => {
+        this.sfxVolume = parseFloat(e.target.value) / 100;
+        if (this.audioManager) {
+          this.audioManager.setSFXVolume(this.sfxVolume);
+        }
+        this.saveAudioSettings();
+      });
+    }
+
+    if (musicVolumeSlider) {
+      musicVolumeSlider.addEventListener('input', (e) => {
+        this.musicVolume = parseFloat(e.target.value) / 100;
+        if (this.audioManager) {
+          this.audioManager.setMusicVolume(this.musicVolume);
+        }
+        this.saveAudioSettings();
+      });
+    }
+
+    // Mute checkboxes (checked = unmuted, unchecked = muted)
+    if (sfxMuteCheckbox) {
+      sfxMuteCheckbox.addEventListener('change', (e) => {
+        this.sfxMuted = !e.target.checked;
+        this.applyAudioSettings();
+        this.saveAudioSettings();
+      });
+    }
+
+    if (musicMuteCheckbox) {
+      musicMuteCheckbox.addEventListener('change', (e) => {
+        this.musicMuted = !e.target.checked;
+        this.applyAudioSettings();
+        this.saveAudioSettings();
+      });
+    }
+
     closeButton.addEventListener('click', () => {
       this.hide();
       if (this.onCloseCallback) {
         this.onCloseCallback();
+      }
+    });
+  }
+
+  switchTab(tabName) {
+    this.activeTab = tabName;
+    
+    // Update tab buttons
+    const tabButtons = this.element.querySelectorAll('.settings-tab');
+    tabButtons.forEach(tab => {
+      if (tab.dataset.tab === tabName) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+
+    // Update tab panels
+    const tabPanels = this.element.querySelectorAll('.tab-panel');
+    tabPanels.forEach(panel => {
+      if (panel.id === `${tabName}-tab`) {
+        panel.classList.add('active');
+      } else {
+        panel.classList.remove('active');
       }
     });
   }
@@ -329,11 +637,11 @@ export class SettingsMenu {
     this.tileGrid = tileGrid;
     // Update the UI if settings menu is already created
     if (this.element && tileGrid) {
-      const settingsOptions = this.element.querySelector('.settings-options');
-      if (settingsOptions && !settingsOptions.querySelector('#grid-toggle')) {
-        settingsOptions.innerHTML = `
+      const generalTabPanel = this.element.querySelector('#general-tab .settings-options');
+      if (generalTabPanel && !generalTabPanel.querySelector('#grid-toggle')) {
+        generalTabPanel.innerHTML = `
           <div class="settings-option">
-            <label class="settings-label">Show Grid</label>
+            <span class="settings-label">Show Grid</span>
             <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
               ${this.gridVisible ? 'On' : 'Off'}
             </button>
@@ -370,11 +678,59 @@ export class SettingsMenu {
     }
     // Reload settings in case they were changed elsewhere
     this.loadSettings();
+    this.loadAudioSettings();
     // Update toggle button to reflect current state
     this.updateToggleButton();
     // Apply the setting to the grid
     this.updateGridVisibility();
+    // Apply audio settings
+    this.applyAudioSettings();
     this.element.classList.add('visible');
+  }
+
+  applyAudioSettings() {
+    if (this.audioManager) {
+      this.audioManager.setMusicVolume(this.musicVolume);
+      this.audioManager.setSFXVolume(this.sfxVolume);
+      
+      // Apply mute states
+      if (this.audioManager.currentMusic) {
+        this.audioManager.currentMusic.muted = this.musicMuted;
+      }
+      
+      // Apply SFX mute to all non-music sounds
+      if (this.audioManager.sounds) {
+        this.audioManager.sounds.forEach((sound, name) => {
+          // Check if it's a music track (we can identify by checking if it loops or by name patterns)
+          // For now, only mute non-music sounds for SFX mute
+          // Music tracks are handled separately above
+          const isMusic = name === 'main_menu' || 
+                         this.audioManager.gameplayMusicTracks?.includes(name);
+          if (!isMusic) {
+            sound.muted = this.sfxMuted;
+          }
+        });
+      }
+    }
+    
+    // Update UI sliders and checkboxes
+    const sfxVolumeSlider = this.element.querySelector('#sfx-volume-slider');
+    const musicVolumeSlider = this.element.querySelector('#music-volume-slider');
+    const sfxMuteCheckbox = this.element.querySelector('#sfx-mute-checkbox');
+    const musicMuteCheckbox = this.element.querySelector('#music-mute-checkbox');
+    
+    if (sfxVolumeSlider) {
+      sfxVolumeSlider.value = Math.round(this.sfxVolume * 100);
+    }
+    if (musicVolumeSlider) {
+      musicVolumeSlider.value = Math.round(this.musicVolume * 100);
+    }
+    if (sfxMuteCheckbox) {
+      sfxMuteCheckbox.checked = !this.sfxMuted;
+    }
+    if (musicMuteCheckbox) {
+      musicMuteCheckbox.checked = !this.musicMuted;
+    }
   }
 
   hide() {
