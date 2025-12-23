@@ -23,38 +23,61 @@ export class LoadingScreen {
     this.element = document.createElement('div');
     this.element.id = 'loading-screen';
     
-    // Create gear SVG icon - simplified gear shape
+    // Create gear SVG icon - simplified gear shape with signature color and gold
     const gearIcon = `
       <svg class="gear-icon" width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <!-- Gear teeth (8 teeth) -->
+        <!-- Gear teeth (8 teeth) - alternating signature and gold -->
         <g fill="#6FD6FF" opacity="0.95">
           <!-- Top tooth -->
           <rect x="45" y="5" width="10" height="15" rx="2"/>
           <!-- Right tooth -->
-          <rect x="80" y="45" width="15" height="10" rx="2"/>
+          <rect x="80" y="45" width="15" height="10" rx="2" fill="#FFD700"/>
           <!-- Bottom tooth -->
           <rect x="45" y="80" width="10" height="15" rx="2"/>
           <!-- Left tooth -->
-          <rect x="5" y="45" width="15" height="10" rx="2"/>
+          <rect x="5" y="45" width="15" height="10" rx="2" fill="#FFD700"/>
           <!-- Top-right tooth -->
           <rect x="70" y="15" width="10" height="12" rx="2" transform="rotate(45 75 21)"/>
           <!-- Bottom-right tooth -->
-          <rect x="70" y="73" width="10" height="12" rx="2" transform="rotate(-45 75 79)"/>
+          <rect x="70" y="73" width="10" height="12" rx="2" transform="rotate(-45 75 79)" fill="#FFD700"/>
           <!-- Bottom-left tooth -->
           <rect x="20" y="73" width="10" height="12" rx="2" transform="rotate(45 25 79)"/>
           <!-- Top-left tooth -->
-          <rect x="20" y="15" width="10" height="12" rx="2" transform="rotate(-45 25 21)"/>
+          <rect x="20" y="15" width="10" height="12" rx="2" transform="rotate(-45 25 21)" fill="#FFD700"/>
         </g>
         <!-- Outer ring -->
         <circle cx="50" cy="50" r="35" fill="none" stroke="#6FD6FF" stroke-width="3" opacity="0.6"/>
+        <!-- Gold accent ring -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.5"/>
         <!-- Inner circle -->
         <circle cx="50" cy="50" r="20" fill="#1a1a1a"/>
         <!-- Center hole -->
         <circle cx="50" cy="50" r="8" fill="#0a0a0a"/>
         <!-- Inner ring highlight -->
         <circle cx="50" cy="50" r="20" fill="none" stroke="#6FD6FF" stroke-width="2" opacity="0.4"/>
+        <!-- Gold inner accent -->
+        <circle cx="50" cy="50" r="18" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.3"/>
       </svg>
     `;
+    
+    // Create floating objects HTML
+    const floatingObjects = Array.from({ length: 10 }, (_, i) => {
+      const shapes = ['circle', 'square', 'triangle'];
+      const shape = shapes[i % shapes.length];
+      const size = 20 + (i % 4) * 12; // 20, 32, 44, 56px
+      const delay = i * 0.8;
+      const duration = 8 + (i % 4) * 2; // 8-14s
+      const color = i % 2 === 0 ? '#6FD6FF' : '#FFD700';
+      const opacity = 0.3 + (i % 3) * 0.15; // 0.3, 0.45, 0.6
+      
+      if (shape === 'circle') {
+        return `<div class="floating-object floating-circle" style="--size: ${size}px; --delay: ${delay}s; --duration: ${duration}s; --color: ${color}; --opacity: ${opacity};"></div>`;
+      } else if (shape === 'square') {
+        return `<div class="floating-object floating-square" style="--size: ${size}px; --delay: ${delay}s; --duration: ${duration}s; --color: ${color}; --opacity: ${opacity};"></div>`;
+      } else {
+        return `<div class="floating-object floating-triangle" style="--size: ${size}px; --delay: ${delay}s; --duration: ${duration}s; --color: ${color}; --opacity: ${opacity};"></div>`;
+      }
+    }).join('');
     
     this.element.innerHTML = `
       <div class="loading-logo-top-right">
@@ -74,6 +97,9 @@ export class LoadingScreen {
         <div class="hint-text"></div>
       </div>
       <div class="loading-background-animation"></div>
+      <div class="floating-objects-container">
+        ${floatingObjects}
+      </div>
     `;
 
     // Add styles
@@ -95,7 +121,6 @@ export class LoadingScreen {
         z-index: 99999;
         transition: opacity 0.5s ease-out;
         overflow: hidden;
-        animation: kenBurns 25s ease-in-out infinite;
       }
 
       #loading-screen::before {
@@ -107,21 +132,6 @@ export class LoadingScreen {
         height: 100%;
         background: linear-gradient(135deg, rgba(10, 10, 10, 0.7) 0%, rgba(26, 26, 46, 0.6) 50%, rgba(22, 33, 62, 0.7) 100%);
         z-index: 1;
-      }
-
-      @keyframes kenBurns {
-        0% {
-          background-size: 100%;
-          background-position: center center;
-        }
-        50% {
-          background-size: 110%;
-          background-position: 60% 40%;
-        }
-        100% {
-          background-size: 100%;
-          background-position: center center;
-        }
       }
 
       #loading-screen.hidden {
@@ -137,7 +147,9 @@ export class LoadingScreen {
         height: 100%;
         background: 
           radial-gradient(circle at 20% 50%, rgba(111, 214, 255, 0.05) 0%, transparent 50%),
-          radial-gradient(circle at 80% 80%, rgba(111, 214, 255, 0.03) 0%, transparent 50%);
+          radial-gradient(circle at 80% 80%, rgba(111, 214, 255, 0.03) 0%, transparent 50%),
+          radial-gradient(circle at 50% 20%, rgba(255, 215, 0, 0.04) 0%, transparent 50%),
+          radial-gradient(circle at 70% 60%, rgba(255, 215, 0, 0.03) 0%, transparent 50%);
         animation: backgroundPulse 8s ease-in-out infinite;
         pointer-events: none;
         z-index: 2;
@@ -158,13 +170,17 @@ export class LoadingScreen {
       .logo-image {
         width: 280px;
         height: auto;
-        filter: drop-shadow(0 0 15px rgba(111, 214, 255, 0.4));
+        filter: drop-shadow(0 0 15px rgba(111, 214, 255, 0.4)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
         animation: logoGlow 3s ease-in-out infinite;
       }
 
       @keyframes logoGlow {
-        0%, 100% { filter: drop-shadow(0 0 10px rgba(111, 214, 255, 0.3)); }
-        50% { filter: drop-shadow(0 0 20px rgba(111, 214, 255, 0.6)); }
+        0%, 100% { 
+          filter: drop-shadow(0 0 10px rgba(111, 214, 255, 0.3)) drop-shadow(0 0 5px rgba(255, 215, 0, 0.2)); 
+        }
+        50% { 
+          filter: drop-shadow(0 0 20px rgba(111, 214, 255, 0.6)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.4)); 
+        }
       }
 
       .loading-content {
@@ -182,7 +198,7 @@ export class LoadingScreen {
 
       .gear-icon {
         animation: gearRotate 2s linear infinite;
-        filter: drop-shadow(0 0 15px rgba(111, 214, 255, 0.6));
+        filter: drop-shadow(0 0 15px rgba(111, 214, 255, 0.6)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.4));
       }
 
       @keyframes gearRotate {
@@ -200,7 +216,7 @@ export class LoadingScreen {
         font-weight: bold;
         margin-bottom: 15px;
         font-family: 'Arial', sans-serif;
-        text-shadow: 0 0 20px rgba(111, 214, 255, 0.8), 0 0 40px rgba(111, 214, 255, 0.4);
+        text-shadow: 0 0 20px rgba(111, 214, 255, 0.8), 0 0 40px rgba(111, 214, 255, 0.4), 0 0 15px rgba(255, 215, 0, 0.5);
         animation: percentagePulse 2s ease-in-out infinite;
       }
 
@@ -214,7 +230,7 @@ export class LoadingScreen {
         font-size: 20px;
         font-family: 'Arial', sans-serif;
         min-height: 28px;
-        text-shadow: 0 0 10px rgba(111, 214, 255, 0.5);
+        text-shadow: 0 0 10px rgba(111, 214, 255, 0.5), 0 0 5px rgba(255, 215, 0, 0.3);
         letter-spacing: 1px;
       }
 
@@ -232,7 +248,7 @@ export class LoadingScreen {
         font-weight: bold;
         font-family: 'Arial', sans-serif;
         margin-bottom: 12px;
-        text-shadow: 0 0 10px rgba(111, 214, 255, 0.5);
+        text-shadow: 0 0 10px rgba(111, 214, 255, 0.5), 0 0 5px rgba(255, 215, 0, 0.3);
         letter-spacing: 1px;
         opacity: 0.9;
       }
@@ -242,7 +258,7 @@ export class LoadingScreen {
         font-size: 18px;
         font-family: 'Arial', sans-serif;
         line-height: 1.5;
-        text-shadow: 0 0 8px rgba(111, 214, 255, 0.4);
+        text-shadow: 0 0 8px rgba(111, 214, 255, 0.4), 0 0 4px rgba(255, 215, 0, 0.25);
         min-height: 54px;
         opacity: 0;
         animation: hintFadeIn 0.5s ease-in forwards;
@@ -261,6 +277,79 @@ export class LoadingScreen {
         from { opacity: 1; transform: translateY(0); }
         to { opacity: 0; transform: translateY(-10px); }
       }
+
+      .floating-objects-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 3;
+        overflow: hidden;
+      }
+
+      .floating-object {
+        position: absolute;
+        opacity: var(--opacity);
+        animation: float var(--duration) ease-in-out infinite;
+        animation-delay: var(--delay);
+      }
+
+      .floating-circle {
+        width: var(--size);
+        height: var(--size);
+        border-radius: 50%;
+        background: var(--color);
+        box-shadow: 0 0 20px var(--color), 0 0 40px var(--color);
+      }
+
+      .floating-square {
+        width: var(--size);
+        height: var(--size);
+        background: var(--color);
+        box-shadow: 0 0 20px var(--color), 0 0 40px var(--color);
+        transform: rotate(45deg);
+      }
+
+      .floating-triangle {
+        width: 0;
+        height: 0;
+        border-left: calc(var(--size) / 2) solid transparent;
+        border-right: calc(var(--size) / 2) solid transparent;
+        border-bottom: var(--size) solid var(--color);
+        filter: drop-shadow(0 0 10px var(--color)) drop-shadow(0 0 20px var(--color));
+      }
+
+      @keyframes float {
+        0% {
+          transform: translate(0, 0) rotate(0deg) scale(1);
+        }
+        25% {
+          transform: translate(30px, -50px) rotate(90deg) scale(1.1);
+        }
+        50% {
+          transform: translate(-20px, -100px) rotate(180deg) scale(0.9);
+        }
+        75% {
+          transform: translate(-40px, -50px) rotate(270deg) scale(1.05);
+        }
+        100% {
+          transform: translate(0, 0) rotate(360deg) scale(1);
+        }
+      }
+
+      /* Position floating objects at different starting positions */
+      .floating-object:nth-child(1) { left: 10%; top: 20%; }
+      .floating-object:nth-child(2) { left: 80%; top: 15%; }
+      .floating-object:nth-child(3) { left: 15%; top: 70%; }
+      .floating-object:nth-child(4) { left: 85%; top: 75%; }
+      .floating-object:nth-child(5) { left: 50%; top: 10%; }
+      .floating-object:nth-child(6) { left: 5%; top: 50%; }
+      .floating-object:nth-child(7) { left: 90%; top: 50%; }
+      .floating-object:nth-child(8) { left: 30%; top: 85%; }
+      .floating-object:nth-child(9) { left: 70%; top: 5%; }
+      .floating-object:nth-child(10) { left: 45%; top: 60%; }
     `;
     document.head.appendChild(style);
   }
