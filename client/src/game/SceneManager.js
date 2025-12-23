@@ -446,29 +446,17 @@ export class SceneManager {
           const tree = new Tree(this.scene, this.tileGrid, treeData.tileX, treeData.tileZ, treeData.sizeVariation || 1.0);
           this.worldObjects.push(tree);
           
-          // Re-hook tree chop callback
-          const originalChop = tree.chop.bind(tree);
-          tree.chop = () => {
-            const result = originalChop();
-            if (result && result.type) {
-              const treeTilePos = tree.getTilePosition();
-              if (treeTilePos) {
-                for (let i = 0; i < result.count; i++) {
-                  const offsetX = Math.floor((Math.random() - 0.5) * 3);
-                  const offsetZ = Math.floor((Math.random() - 0.5) * 3);
-                  const nearbyTile = this.tileGrid.getTile(treeTilePos.tileX + offsetX, treeTilePos.tileZ + offsetZ);
-                  if (nearbyTile && nearbyTile.walkable) {
-                    this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.type);
-                  } else {
-                    const treeTile = this.tileGrid.getTile(treeTilePos.tileX, treeTilePos.tileZ);
-                    if (treeTile) {
-                      this.spawnResource(treeTile.worldX, treeTile.worldZ, result.type);
-                    }
-                  }
-                }
+          // Re-hook tree harvest callback (similar to initialization)
+          if (tree.harvest && typeof tree.harvest === 'function') {
+            const originalHarvest = tree.harvest.bind(tree);
+            tree.harvest = () => {
+              const results = originalHarvest();
+              if (results && Array.isArray(results)) {
+                this.processHarvestResults(tree, results);
               }
-            }
-          };
+              return results;
+            };
+          }
         });
       }
 

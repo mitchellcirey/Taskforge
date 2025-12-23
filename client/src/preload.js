@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listSaveFiles: () => ipcRenderer.invoke('list-save-files'),
   // Get screenshot as data URL
   getScreenshot: (filePath) => ipcRenderer.invoke('get-screenshot', filePath),
+  // Delete save
+  deleteSave: (filePath) => ipcRenderer.invoke('delete-save', filePath),
   
   // Quit API (already used in MainMenu)
   quit: () => {

@@ -74,10 +74,71 @@ function base64ToBuffer(base64String) {
   return Buffer.from(base64Data, 'base64');
 }
 
+// Helper function to get all save folders sorted by date (oldest last)
+async function getAllSaveFolders() {
+  try {
+    const saveDir = await ensureSaveDirectory();
+    const items = await fs.readdir(saveDir, { withFileTypes: true });
+    
+    const saveFolders = items
+      .filter(item => item.isDirectory() && item.name.startsWith('save_'))
+      .map(item => {
+        const folderPath = path.join(saveDir, item.name);
+        const saveFilePath = path.join(folderPath, 'save.json');
+        return {
+          folderName: item.name,
+          folderPath: folderPath,
+          saveFilePath: saveFilePath
+        };
+      });
+    
+    // Get stats and filter valid saves
+    const savesWithStats = await Promise.all(
+      saveFolders.map(async (folder) => {
+        try {
+          const stats = await fs.stat(folder.saveFilePath);
+          return {
+            folderPath: folder.folderPath,
+            modifiedTime: stats.mtime.getTime()
+          };
+        } catch (e) {
+          return null;
+        }
+      })
+    );
+    
+    const validSaves = savesWithStats.filter(save => save !== null);
+    // Sort by modification time (most recent first, oldest last)
+    validSaves.sort((a, b) => b.modifiedTime - a.modifiedTime);
+    
+    return validSaves;
+  } catch (error) {
+    console.error('Error getting save folders:', error);
+    return [];
+  }
+}
+
 // IPC Handlers
 ipcMain.handle('save-world', async (event, saveData, screenshotDataURL = null) => {
   try {
     const saveDir = await ensureSaveDirectory();
+    
+    // Check if we're at the 5-save limit and delete oldest if needed
+    const existingSaves = await getAllSaveFolders();
+    const MAX_SAVES = 5;
+    
+    if (existingSaves.length >= MAX_SAVES) {
+      // Delete the oldest save (last in the sorted array)
+      const oldestSave = existingSaves[existingSaves.length - 1];
+      try {
+        await fs.rm(oldestSave.folderPath, { recursive: true, force: true });
+        console.log(`Deleted oldest save: ${oldestSave.folderPath}`);
+      } catch (deleteError) {
+        console.error('Error deleting oldest save:', deleteError);
+        // Continue anyway - we'll try to save the new one
+      }
+    }
+    
     const folderName = generateSaveFolderName();
     const saveFolderPath = path.join(saveDir, folderName);
     
@@ -209,6 +270,33 @@ ipcMain.handle('list-save-files', async () => {
   } catch (error) {
     console.error('Error listing save files:', error);
     return [];
+  }
+});
+
+ipcMain.handle('delete-save', async (event, saveFilePath) => {
+  try {
+    if (!saveFilePath) {
+      return { success: false, error: 'No save file path provided' };
+    }
+    
+    // Extract the folder path from the save file path
+    // saveFilePath is like: .../saves/save_TIMESTAMP/save.json
+    // We need to delete the entire folder: .../saves/save_TIMESTAMP
+    const folderPath = path.dirname(saveFilePath);
+    
+    // Verify it's a save folder (starts with 'save_')
+    const folderName = path.basename(folderPath);
+    if (!folderName.startsWith('save_')) {
+      return { success: false, error: 'Invalid save folder' };
+    }
+    
+    // Delete the entire folder
+    await fs.rm(folderPath, { recursive: true, force: true });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting save:', error);
+    return { success: false, error: error.message };
   }
 });
 

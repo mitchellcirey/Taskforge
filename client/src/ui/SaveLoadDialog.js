@@ -15,6 +15,7 @@ export class SaveLoadDialog {
       <div class="dialog-background"></div>
       <div class="dialog-content">
         <h2 class="dialog-title">Load Game</h2>
+        <div class="dialog-subtitle" id="save-count-display"></div>
         <div class="save-list-container" id="save-list-container">
           <div class="save-list-loading">Loading saves...</div>
         </div>
@@ -95,13 +96,21 @@ export class SaveLoadDialog {
       .dialog-title {
         color: #1a1a1a;
         font-size: 42px;
-        margin: 30px 40px 20px 40px;
+        margin: 30px 40px 10px 40px;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         font-family: 'Arial', sans-serif;
         font-weight: bold;
         letter-spacing: 2px;
         text-transform: uppercase;
         text-align: center;
+      }
+
+      .dialog-subtitle {
+        color: #7f8c8d;
+        font-size: 16px;
+        margin: 0 40px 20px 40px;
+        text-align: center;
+        font-family: 'Arial', sans-serif;
       }
 
       .save-list-container {
@@ -188,6 +197,34 @@ export class SaveLoadDialog {
       .save-item-date {
         font-size: 14px;
         color: #7f8c8d;
+      }
+
+      .save-item-delete {
+        background: #e74c3c;
+        border: 2px solid #c0392b;
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: 'Arial', sans-serif;
+        font-weight: 600;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .save-item-delete:hover {
+        background: #c0392b;
+        border-color: #a93226;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+      }
+
+      .save-item-delete:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(231, 76, 60, 0.2);
       }
 
       .dialog-buttons {
@@ -307,6 +344,12 @@ export class SaveLoadDialog {
 
       const saveFiles = await window.electronAPI.listSaveFiles();
       
+      // Update save count display
+      const saveCountDisplay = this.element.querySelector('#save-count-display');
+      if (saveCountDisplay) {
+        saveCountDisplay.textContent = `${saveFiles.length}/5 saves`;
+      }
+
       if (saveFiles.length === 0) {
         container.innerHTML = '<div class="save-list-empty">No save files found.<br/>Start playing and save your game to create a save file.</div>';
         return;
@@ -377,10 +420,75 @@ export class SaveLoadDialog {
           <div class="save-item-date">${fileName}</div>
         `;
 
+        // Create delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'save-item-delete';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', async (e) => {
+          e.stopPropagation(); // Prevent triggering save selection
+          
+          // Show confirmation dialog
+          const confirmed = confirm(`Are you sure you want to delete this save?\n\n${displayDate}\n${fileName}\n\nThis action cannot be undone.`);
+          
+          if (!confirmed) {
+            return;
+          }
+          
+          // Disable button during deletion
+          deleteButton.disabled = true;
+          deleteButton.textContent = 'Deleting...';
+          
+          try {
+            if (!window.electronAPI || !window.electronAPI.deleteSave) {
+              alert('Delete functionality is not available. Please run the game in Electron.');
+              deleteButton.disabled = false;
+              deleteButton.textContent = 'Delete';
+              return;
+            }
+            
+            const result = await window.electronAPI.deleteSave(saveFile.path);
+            
+            if (result.success) {
+              // Remove the save item from the UI
+              saveItem.remove();
+              
+              // Clear selection if this was the selected save
+              if (this.selectedSave === saveFile.path) {
+                this.selectedSave = null;
+                const loadButton = this.element.querySelector('#load-button');
+                loadButton.disabled = true;
+              }
+              
+              // Update save count display
+              const saveCountDisplay = this.element.querySelector('#save-count-display');
+              if (saveCountDisplay) {
+                const remainingItems = container.querySelectorAll('.save-item');
+                saveCountDisplay.textContent = `${remainingItems.length}/5 saves`;
+              }
+              
+              // Check if list is now empty
+              const remainingItems = container.querySelectorAll('.save-item');
+              if (remainingItems.length === 0) {
+                container.innerHTML = '<div class="save-list-empty">No save files found.<br/>Start playing and save your game to create a save file.</div>';
+              }
+            } else {
+              alert(`Failed to delete save: ${result.error}`);
+              deleteButton.disabled = false;
+              deleteButton.textContent = 'Delete';
+            }
+          } catch (error) {
+            console.error('Error deleting save:', error);
+            alert(`Error deleting save: ${error.message}`);
+            deleteButton.disabled = false;
+            deleteButton.textContent = 'Delete';
+          }
+        });
+
         const contentDiv = document.createElement('div');
         contentDiv.className = 'save-item-content';
         contentDiv.appendChild(screenshotImg);
         contentDiv.appendChild(infoDiv);
+        contentDiv.appendChild(deleteButton);
         saveItem.appendChild(contentDiv);
 
         saveItem.addEventListener('click', () => {
