@@ -1,13 +1,15 @@
 export class SaveManager {
   constructor() {
-    this.CURRENT_VERSION = '1.1.0'; // Current save format version
+    this.CURRENT_VERSION = '1.2.0'; // Current save format version (added worldName and seed)
     this.version = this.CURRENT_VERSION; // For backwards compatibility
   }
 
-  serialize(sceneManager, cameraController) {
+  serialize(sceneManager, cameraController, worldName = null, seed = null) {
     const saveData = {
       version: this.CURRENT_VERSION,
       timestamp: new Date().toISOString(),
+      worldName: worldName || null,
+      seed: seed !== null ? seed : (sceneManager.tileGrid?.seed || null),
       player: this.serializePlayer(sceneManager.player),
       buildings: this.serializeBuildings(sceneManager.buildingManager?.buildings || []),
       worldObjects: this.serializeWorldObjects(sceneManager.worldObjects || []),
@@ -171,6 +173,19 @@ export class SaveManager {
       }
       
       migratedData.version = '1.1.0';
+    }
+
+    // Version 1.1.0 -> 1.2.0 migration
+    // Changes:
+    // - Added worldName and seed fields for world generation
+    if (this.compareVersions(saveVersion, '1.2.0') < 0) {
+      if (!('worldName' in migratedData)) {
+        migratedData.worldName = null;
+      }
+      if (!('seed' in migratedData)) {
+        migratedData.seed = null;
+      }
+      migratedData.version = '1.2.0';
     }
 
     // Update to current version

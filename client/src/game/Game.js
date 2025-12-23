@@ -9,6 +9,7 @@ import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
 import { SaveLoadDialog } from '../ui/SaveLoadDialog.js';
 import { PlaySubmenu } from '../ui/PlaySubmenu.js';
+import { NewGameDialog } from '../ui/NewGameDialog.js';
 import { GameState } from './GameState.js';
 import { getItemTypeRegistry } from './ItemTypeRegistry.js';
 import { ItemType } from './items/ItemType.js';
@@ -33,6 +34,9 @@ export class Game {
     this.saveLoadDialog = null;
     this.characterNameDialog = null;
     this.playSubmenu = null;
+    this.newGameDialog = null;
+    this.currentWorldName = null;
+    this.currentWorldSeed = null;
     this.gameState = new GameState();
     this.audioManager = new AudioManager();
     this.wsClient = null; // WebSocket client for multiplayer
@@ -212,7 +216,21 @@ export class Game {
     // Create play submenu
     this.playSubmenu = new PlaySubmenu(this.container);
     this.playSubmenu.onNewGame(() => {
-      this.startGame();
+      if (this.newGameDialog) {
+        this.newGameDialog.show();
+      }
+    });
+
+    // Create new game dialog
+    this.newGameDialog = new NewGameDialog(this.container);
+    this.newGameDialog.onStart((worldName, seed) => {
+      this.handleNewGame(worldName, seed);
+    });
+    this.newGameDialog.onCancel(() => {
+      // Show play submenu again when canceled
+      if (this.playSubmenu) {
+        this.playSubmenu.show();
+      }
     });
     this.playSubmenu.onLoadGame(() => {
       this.showLoadDialog();
@@ -630,12 +648,51 @@ export class Game {
     }
   }
 
-  async startGame() {
+  handleNewGame(worldName, seed) {
+    // Store world name and seed for use in startGame
+    this.currentWorldName = worldName;
+    this.currentWorldSeed = seed;
+    
+    // Register world with server
+    this.registerWorldWithServer(worldName, seed).catch(err => {
+      console.warn('Failed to register world with server:', err);
+      // Continue anyway - server registration is not critical
+    });
+    
+    // Start the game with the seed
+    this.startGame(seed);
+  }
+
+  async registerWorldWithServer(worldName, seed) {
+    try {
+      const response = await fetch('http://localhost:8081/worlds', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ worldName, seed }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status ${response.status}`);
+      }
+      
+      console.log('World registered with server:', worldName, seed);
+    } catch (error) {
+      // Server might not be running - that's okay for now
+      console.warn('Could not register world with server (server may not be running):', error);
+    }
+  }
+
+  async startGame(seed = null) {
     // Prevent multiple simultaneous starts
     if (this.isStartingGame) {
       console.warn('Game start already in progress');
       return;
     }
+    
+    // Use provided seed or current world seed
+    const worldSeed = seed !== null ? seed : (this.currentWorldSeed || null);
 
     // Check if character name is set
     if (!this.checkCharacterName()) {
@@ -683,7 +740,7 @@ export class Game {
         }
       };
       
-      await this.sceneManager.init(progressCallback);
+      await this.sceneManager.init(progressCallback, worldSeed);
       
       // Update settings menu with tileGrid after scene manager is initialized
       if (this.sceneManager.tileGrid && this.settingsMenu) {
@@ -698,6 +755,15 @@ export class Game {
       await new Promise(resolve => requestAnimationFrame(resolve));
       await delay(400);
       this.sceneManager.clearWorld();
+      
+      // Regenerate world with new seed if provided
+      if (worldSeed !== null) {
+        this.loadingScreen.setProgress(15);
+        this.loadingScreen.setLoadingMessage('Regenerating world...');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await delay(400);
+        await this.sceneManager.regenerateWorld(worldSeed);
+      }
       
       // Reset player to starting position
       this.loadingScreen.setProgress(30);
@@ -819,8 +885,13 @@ export class Game {
       // Capture screenshot before saving
       const screenshotDataURL = this.captureScreenshot();
       
-      // Serialize game state
-      const saveData = this.saveManager.serialize(this.sceneManager, this.sceneManager.cameraController);
+      // Serialize game state (include world name and seed)
+      const saveData = this.saveManager.serialize(
+        this.sceneManager, 
+        this.sceneManager.cameraController,
+        this.currentWorldName,
+        this.currentWorldSeed
+      );
       
       // Save via Electron API (including screenshot)
       if (!window.electronAPI || !window.electronAPI.saveWorld) {
@@ -959,6 +1030,12 @@ export class Game {
       // Validate save data
       this.saveManager.validateSaveData(migratedData);
 
+      // Extract world name and seed from save data
+      const saveSeed = migratedData.seed !== undefined ? migratedData.seed : null;
+      const saveWorldName = migratedData.worldName || null;
+      this.currentWorldName = saveWorldName;
+      this.currentWorldSeed = saveSeed;
+
       // Initialize scene manager if not already initialized
       if (!this.sceneManager) {
         this.mainMenu.hide();
@@ -980,7 +1057,8 @@ export class Game {
           }
         };
         
-        await this.sceneManager.init(progressCallback);
+        // Initialize with seed from save data
+        await this.sceneManager.init(progressCallback, saveSeed);
         
         // Update settings menu with tileGrid after scene manager is initialized
         if (this.sceneManager.tileGrid && this.settingsMenu) {
@@ -993,6 +1071,15 @@ export class Game {
         await new Promise(resolve => requestAnimationFrame(resolve));
         await delay(400);
         this.sceneManager.clearWorld();
+        
+        // Regenerate world with seed from save if available
+        if (saveSeed !== null) {
+          this.loadingScreen.setProgress(45);
+          this.loadingScreen.setLoadingMessage('Regenerating world...');
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          await delay(400);
+          await this.sceneManager.regenerateWorld(saveSeed);
+        }
       }
 
       // Restore world from migrated save data

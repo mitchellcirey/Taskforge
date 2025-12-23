@@ -49,7 +49,7 @@ export class SceneManager {
     this.directionalLight = null;
   }
 
-  async init(progressCallback = null) {
+  async init(progressCallback = null, seed = null) {
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     
     const reportProgress = async (message, percentage, waitMs = 400) => {
@@ -114,7 +114,8 @@ export class SceneManager {
     // Step 4: Creating tile grid (20%)
     await reportProgress('Creating tile grid...', 30, 400);
     // Map size - 200x200 tiles
-    this.tileGrid = new TileGrid(this.scene, 200, 200);
+    // Use provided seed or generate random one
+    this.tileGrid = new TileGrid(this.scene, 200, 200, seed);
     this.tileGrid.create();
 
     // Step 5: Creating terrain (30%)
@@ -417,6 +418,31 @@ export class SceneManager {
       this.player.path = [];
       this.player.isMoving = false;
       this.player.targetPosition = null;
+    }
+  }
+
+  async regenerateWorld(seed = null) {
+    // Remove old terrain and tile grid
+    if (this.terrain) {
+      this.terrain.dispose();
+      this.terrain = null;
+    }
+    
+    if (this.tileGrid && this.tileGrid.gridHelper) {
+      this.scene.remove(this.tileGrid.gridHelper);
+    }
+    
+    // Create new tile grid with seed
+    this.tileGrid = new TileGrid(this.scene, 200, 200, seed);
+    this.tileGrid.create();
+    
+    // Create new terrain
+    this.terrain = new Terrain(this.scene, this.tileGrid, 200, 200);
+    this.terrain.create();
+    
+    // Update tile highlighter if it exists
+    if (this.tileHighlighter) {
+      this.tileHighlighter.tileGrid = this.tileGrid;
     }
   }
 
