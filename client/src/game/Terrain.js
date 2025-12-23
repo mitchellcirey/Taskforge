@@ -145,15 +145,18 @@ export class Terrain {
         // For interior areas, create cohesive dirt patches with sharp boundaries (Autonauts style)
         // Use very low frequency noise to create large, distinct blob-like regions
         // This approximates the distance-based patch centers from TileGrid
-        float regionNoise = fbm(vec2(tileX, tileZ) * 0.012, 3);
+        float regionNoise = fbm(vec2(tileX, tileZ) * 0.01, 3);
         
-        // Use slightly higher frequency to add variation to patch sizes
-        float sizeVariation = fbm(vec2(tileX, tileZ) * 0.06, 3);
+        // Use multiple frequencies to create more varied patch sizes
+        float sizeVariation1 = fbm(vec2(tileX, tileZ) * 0.04, 3);
+        float sizeVariation2 = fbm(vec2(tileX, tileZ) * 0.08, 3);
+        float sizeVariation = sizeVariation1 * 0.6 + sizeVariation2 * 0.4;
         
         // Create cohesive patches with sharp boundaries (Autonauts style)
         // Lower regionNoise values create dirt patches
-        // Size variation affects the threshold to create different patch sizes
-        float patchThreshold = 0.25 + sizeVariation * 0.15; // Varies from 0.25 to 0.4
+        // Size variation affects the threshold to create different patch sizes (more variation)
+        // Wider range for more size variety: 0.2 to 0.45
+        float patchThreshold = 0.2 + sizeVariation * 0.25;
         
         // Very sharp boundaries - minimal blend zone for blocky appearance
         float blendWidth = 0.01; // Very small blend zone for sharp, blocky edges

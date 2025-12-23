@@ -236,13 +236,21 @@ export class SceneManager {
       const tileZ = Math.floor(Math.random() * this.tileGrid.height);
       const tile = this.tileGrid.getTile(tileX, tileZ);
 
-      // Only spawn trees on dirt tiles
-      if (tile && tile.walkable && !tile.occupied && tile.type === 'dirt') {
-        // Vary tree size between 0.7 and 1.3 scale
-        const sizeVariation = 0.7 + Math.random() * 0.6;
-        const tree = new Tree(this.scene, this.tileGrid, tileX, tileZ, sizeVariation);
-        this.worldObjects.push(tree);
-        spawned++;
+      if (tile && tile.walkable && !tile.occupied) {
+        // Trees only grow on dirt - convert grass to dirt if needed
+        if (tile.type !== 'dirt' && tile.type !== 'sand') {
+          // Convert grass tile to dirt for the tree
+          tile.type = 'dirt';
+        }
+        
+        // Only spawn on dirt (now guaranteed to be dirt)
+        if (tile.type === 'dirt') {
+          // Vary tree size between 0.7 and 1.3 scale
+          const sizeVariation = 0.7 + Math.random() * 0.6;
+          const tree = new Tree(this.scene, this.tileGrid, tileX, tileZ, sizeVariation);
+          this.worldObjects.push(tree);
+          spawned++;
+        }
       }
     }
   }

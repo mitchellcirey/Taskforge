@@ -19,18 +19,32 @@ export class TileGrid {
     this.initializeChunks();
   }
 
-  // Generate random dirt patch centers across the map
+  // Generate random dirt patch centers across the map with more size variation
   generateDirtPatchCenters() {
     const patches = [];
-    const numPatches = Math.floor((this.width * this.height) / 400); // ~1 patch per 400 tiles
+    // More patches for better distribution - ~1 patch per 300 tiles
+    const numPatches = Math.floor((this.width * this.height) / 300);
     
     for (let i = 0; i < numPatches; i++) {
-      // Random position across the map
-      const centerX = Math.random() * this.width;
-      const centerZ = Math.random() * this.height;
+      // Random position across the map (avoid edges where sand is)
+      const margin = this.width * 0.15; // Avoid outer 15% where sand is
+      const centerX = margin + Math.random() * (this.width - margin * 2);
+      const centerZ = margin + Math.random() * (this.height - margin * 2);
       
-      // Random patch size (radius in tiles) - varies from 3 to 12 tiles
-      const radius = 3 + Math.random() * 9;
+      // Much more varied patch sizes - from very small (2 tiles) to very large (20 tiles)
+      // Use exponential distribution for more variety
+      const sizeRoll = Math.random();
+      let radius;
+      if (sizeRoll < 0.3) {
+        // 30% small patches (2-5 tiles)
+        radius = 2 + Math.random() * 3;
+      } else if (sizeRoll < 0.7) {
+        // 40% medium patches (5-10 tiles)
+        radius = 5 + Math.random() * 5;
+      } else {
+        // 30% large patches (10-20 tiles)
+        radius = 10 + Math.random() * 10;
+      }
       
       patches.push({
         x: centerX,
