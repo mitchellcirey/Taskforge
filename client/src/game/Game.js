@@ -163,6 +163,9 @@ export class Game {
     this.pauseMenu.onSaveWorld(() => {
       this.saveWorld();
     });
+    this.pauseMenu.onLoadWorld(() => {
+      this.showLoadDialog();
+    });
 
     // Create admin menu
     this.adminMenu = new AdminMenu(this.container);
@@ -177,6 +180,10 @@ export class Game {
       // Show main menu again when cancel is clicked (or play submenu if that's where we came from)
       if (this.mainMenu && this.gameState.getState() === GameState.MENU) {
         this.mainMenu.show();
+      }
+      // Show pause menu again if we were in paused state
+      if (this.pauseMenu && this.gameState.getState() === GameState.PAUSED) {
+        this.pauseMenu.show();
       }
     });
 

@@ -7,6 +7,7 @@ export class PauseMenu {
     this.onQuitToMenuCallback = null;
     this.onSettingsCallback = null;
     this.onSaveWorldCallback = null;
+    this.onLoadWorldCallback = null;
     this.create();
     this.setupKeyboardListener();
   }
@@ -24,6 +25,9 @@ export class PauseMenu {
           </button>
           <button class="pause-button" id="save-world-button">
             <span class="button-text">Save World</span>
+          </button>
+          <button class="pause-button" id="load-world-button">
+            <span class="button-text">Load World</span>
           </button>
           <button class="pause-button" id="settings-button">
             <span class="button-text">Settings</span>
@@ -175,6 +179,7 @@ export class PauseMenu {
   setupEventListeners() {
     const resumeButton = this.element.querySelector('#resume-button');
     const saveWorldButton = this.element.querySelector('#save-world-button');
+    const loadWorldButton = this.element.querySelector('#load-world-button');
     const settingsButton = this.element.querySelector('#settings-button');
     const quitToMenuButton = this.element.querySelector('#quit-to-menu-button');
 
@@ -188,6 +193,13 @@ export class PauseMenu {
     saveWorldButton.addEventListener('click', () => {
       if (this.onSaveWorldCallback) {
         this.onSaveWorldCallback();
+      }
+    });
+
+    loadWorldButton.addEventListener('click', () => {
+      this.hide(); // Hide pause menu when opening load dialog
+      if (this.onLoadWorldCallback) {
+        this.onLoadWorldCallback();
       }
     });
 
@@ -245,6 +257,10 @@ export class PauseMenu {
 
   onSaveWorld(callback) {
     this.onSaveWorldCallback = callback;
+  }
+
+  onLoadWorld(callback) {
+    this.onLoadWorldCallback = callback;
   }
 
   destroy() {
