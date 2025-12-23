@@ -113,10 +113,11 @@ export class Terrain {
     };
     
     // Collect all tile positions by type
+    // For large maps, we render all tiles (chunks are generated on-demand by TileGrid)
     for (let tileX = 0; tileX < this.width; tileX++) {
       for (let tileZ = 0; tileZ < this.height; tileZ++) {
         const tile = this.tileGrid.getTile(tileX, tileZ);
-        if (!tile) continue;
+        if (!tile) continue; // Skip if tile doesn't exist (shouldn't happen with chunked system)
         
         const worldPos = this.tileGrid.getWorldPosition(tileX, tileZ);
         const tileType = tile.type || 'grass';

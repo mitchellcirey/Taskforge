@@ -24,59 +24,42 @@ export class TileGrid {
 
   /**
    * Generate biome patches matching Autonauts' style:
-   * - Distinct, blocky patches with sharp boundaries
+   * - Random-shaped patches (not circular) with sharp boundaries
    * - Deterministic based on seed
-   * - Soil patches for farming
-   * - Water bodies
-   * - Sand on edges
+   * - Soil patches randomly scattered (mostly grass)
+   * - Only medium and large patches
    */
   generateBiomePatches() {
     const patches = {
-      soil: [],
-      water: []
+      soil: []
     };
     
     // Use seed for deterministic generation
     const rng = this.seededRandom(this.seed);
     
-    // Generate soil patches (for farming) - ~1 patch per 400 tiles
-    const numSoilPatches = Math.floor((this.width * this.height) / 400);
+    // Generate soil patches - mostly grass with random dirt patches
+    // ~1 patch per 600 tiles for good distribution
+    const numSoilPatches = Math.floor((this.width * this.height) / 600);
     for (let i = 0; i < numSoilPatches; i++) {
-      const margin = this.width * 0.15; // Avoid outer 15% where sand is
-      const centerX = margin + rng() * (this.width - margin * 2);
-      const centerZ = margin + rng() * (this.height - margin * 2);
-      
-      // Varied patch sizes (Autonauts style)
-      const sizeRoll = rng();
-      let radius;
-      if (sizeRoll < 0.4) {
-        radius = 3 + rng() * 4; // Small patches (3-7 tiles)
-      } else if (sizeRoll < 0.8) {
-        radius = 7 + rng() * 6; // Medium patches (7-13 tiles)
-      } else {
-        radius = 13 + rng() * 10; // Large patches (13-23 tiles)
-      }
-      
-      patches.soil.push({
-        x: centerX,
-        z: centerZ,
-        radius: radius
-      });
-    }
-    
-    // Generate water bodies - fewer, larger patches
-    const numWaterBodies = Math.floor((this.width * this.height) / 2000);
-    for (let i = 0; i < numWaterBodies; i++) {
+      // Random position anywhere on map
       const centerX = rng() * this.width;
       const centerZ = rng() * this.height;
       
-      // Water bodies are larger
-      const radius = 8 + rng() * 12; // 8-20 tile radius
+      // Only medium and large patches (no small patches) - smaller sizes
+      const sizeRoll = rng();
+      let size;
+      if (sizeRoll < 0.5) {
+        size = 3 + rng() * 2; // Medium patches (3-5 tiles) - 50%
+      } else {
+        size = 5 + rng() * 3; // Large patches (5-8 tiles) - 50%
+      }
       
-      patches.water.push({
+      // Store patch with center and size for random shape generation
+      patches.soil.push({
         x: centerX,
         z: centerZ,
-        radius: radius
+        size: size, // Approximate size in tiles
+        seed: Math.floor(rng() * 1000000) // Unique seed for this patch's shape
       });
     }
     
@@ -161,74 +144,62 @@ export class TileGrid {
   /**
    * Create a single tile with Autonauts-style biome assignment
    * Each tile has a discrete type with sharp boundaries (no blending)
+   * - Mostly grass
+   * - Random-shaped dirt/soil patches (not circular)
    */
   createTile(tileX, tileZ) {
-    // Calculate distance from edges for sand placement (Autonauts: sand on beaches/edges)
-    const normalizedX = tileX / this.width;
-    const normalizedZ = tileZ / this.height;
-    const distFromEdgeX = Math.min(normalizedX, 1.0 - normalizedX);
-    const distFromEdgeZ = Math.min(normalizedZ, 1.0 - normalizedZ);
-    const distFromEdge = Math.min(distFromEdgeX, distFromEdgeZ);
-    
-    // Sand appears on edges (outer 15% of map) - Autonauts beach style
-    const edgeThreshold = 0.15;
-    if (distFromEdge < edgeThreshold) {
-      return {
-        tileX: tileX,
-        tileZ: tileZ,
-        type: 'sand',
-        content: null,
-        occupied: false,
-        walkable: true,
-        moveCost: 1,
-        worldX: (tileX - this.width / 2) * this.tileSize,
-        worldZ: (tileZ - this.height / 2) * this.tileSize
-      };
-    }
-    
-    // Check water bodies first (water is non-walkable)
-    for (const waterBody of this.biomePatches.water) {
-      const dx = tileX - waterBody.x;
-      const dz = tileZ - waterBody.z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
-      
-      // Sharp boundary - tile is water if within radius (Autonauts style)
-      if (distance < waterBody.radius) {
-        return {
-          tileX: tileX,
-          tileZ: tileZ,
-          type: 'water',
-          content: null,
-          occupied: false,
-          walkable: false, // Water is not walkable
-          moveCost: Infinity,
-          worldX: (tileX - this.width / 2) * this.tileSize,
-          worldZ: (tileZ - this.height / 2) * this.tileSize
-        };
-      }
-    }
-    
-    // Check soil patches (for farming - Autonauts style)
+    // Check soil patches (random-shaped dirt patches - Autonauts style)
     let isSoil = false;
     for (const soilPatch of this.biomePatches.soil) {
+      // First check: tile must be within reasonable distance of patch center
+      // This limits the area but doesn't create circles
       const dx = tileX - soilPatch.x;
       const dz = tileZ - soilPatch.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
       
-      // Sharp boundary - tile is soil if within radius (blocky, distinct)
-      if (distance < soilPatch.radius) {
+      // Skip if tile is way too far from center (optimization)
+      if (distance > soilPatch.size * 2.5) continue;
+      
+      // Use noise to create random, irregular shapes within the area
+      // Multiple noise layers create organic, non-circular blob shapes
+      const noise1 = this.noise(
+        tileX * 0.25 + soilPatch.seed,
+        tileZ * 0.25 + soilPatch.seed,
+        0.1
+      );
+      const noise2 = this.noise(
+        tileX * 0.4 + soilPatch.seed * 1.5,
+        tileZ * 0.4 + soilPatch.seed * 1.5,
+        0.15
+      );
+      
+      // Combine noise with distance factor to create random blob shapes
+      // Closer to center = more likely, but noise makes it random
+      const normalizedDistance = Math.min(distance / (soilPatch.size * 1.5), 1.0);
+      const distanceFactor = 1.0 - normalizedDistance;
+      const combinedNoise = (noise1 * 0.6 + noise2 * 0.4);
+      
+      // Create random shape: combine distance factor with noise
+      // Higher threshold ensures only some tiles become dirt (not all)
+      const shapeFactor = distanceFactor * 0.4 + combinedNoise * 0.6;
+      
+      // High threshold ensures mostly grass with scattered dirt patches
+      // Medium patches: threshold 0.75, Large patches: threshold 0.7
+      const threshold = soilPatch.size < 4 ? 0.75 : 0.7;
+      
+      if (shapeFactor > threshold && distance < soilPatch.size * 2.0) {
         isSoil = true;
         break;
       }
     }
     
-    // Default to grass (most common in Autonauts)
+    // Default to grass (most common - Autonauts style)
     const tileType = isSoil ? 'dirt' : 'grass';
 
     return {
       tileX: tileX,
       tileZ: tileZ,
-      type: tileType, // 'grass', 'dirt' (soil), 'sand', 'water'
+      type: tileType, // 'grass' or 'dirt' (soil)
       content: null, // Object on tile: 'tree', 'rock', null, etc.
       occupied: false, // Building occupies this tile
       walkable: true, // Can entities walk here

@@ -100,11 +100,11 @@ export class SceneManager {
     this.directionalLight.shadow.mapSize.width = 2048;
     this.directionalLight.shadow.mapSize.height = 2048;
     this.directionalLight.shadow.camera.near = 0.5;
-    this.directionalLight.shadow.camera.far = 150; // Increased for larger world
-    this.directionalLight.shadow.camera.left = -50; // Increased for larger world
-    this.directionalLight.shadow.camera.right = 50;
-    this.directionalLight.shadow.camera.top = 50;
-    this.directionalLight.shadow.camera.bottom = -50;
+    this.directionalLight.shadow.camera.far = 1000; // Increased for much larger world (500x500 tiles)
+    this.directionalLight.shadow.camera.left = -500; // Increased for larger world
+    this.directionalLight.shadow.camera.right = 500;
+    this.directionalLight.shadow.camera.top = 500;
+    this.directionalLight.shadow.camera.bottom = -500;
     this.scene.add(this.directionalLight);
 
     // Initialize day/night cycle system
@@ -113,12 +113,13 @@ export class SceneManager {
 
     // Step 4: Creating tile grid (20%)
     await reportProgress('Creating tile grid...', 30, 400);
-    this.tileGrid = new TileGrid(this.scene, 100, 100);
+    // Larger map - 500x500 tiles for a more expansive world
+    this.tileGrid = new TileGrid(this.scene, 500, 500);
     this.tileGrid.create();
 
     // Step 5: Creating terrain (30%)
     await reportProgress('Generating terrain...', 40, 500);
-    this.terrain = new Terrain(this.scene, this.tileGrid, 100, 100);
+    this.terrain = new Terrain(this.scene, this.tileGrid, 500, 500);
     this.terrain.create();
 
     // Create tile highlighter
@@ -176,13 +177,13 @@ export class SceneManager {
     );
 
     // Initialize camera controller with map bounds
-    // Map bounds: 100x100 tiles, each tile is 2 units, centered at origin
-    // World coordinates range from -100 to +100 (approximately -101 to 101 with edge padding)
+    // Map bounds: 500x500 tiles, each tile is 2 units, centered at origin
+    // World coordinates range from -500 to +500 (500 tiles * 2 units = 1000 units total)
     const mapBounds = {
-      minX: -100,
-      maxX: 100,
-      minZ: -100,
-      maxZ: 100
+      minX: -500,
+      maxX: 500,
+      minZ: -500,
+      maxZ: 500
     };
     this.cameraController = new CameraController(this.camera, this.renderer.domElement, mapBounds);
     
@@ -191,11 +192,11 @@ export class SceneManager {
 
     // Step 9: Spawning world objects (80%)
     await reportProgress('Spawning world objects...', 80, 500);
-    // Spawn trees (more for larger map, mostly on forest side)
-    this.spawnTrees(30);
+    // Spawn trees (more for larger 500x500 map - denser distribution)
+    this.spawnTrees(400);
     
-    // Spawn sticks around the map
-    this.spawnSticks(20);
+    // Spawn sticks around the map (doubled amount)
+    this.spawnSticks(300);
 
     // Hook harvestable objects to process harvest results
     this.worldObjects.forEach(obj => {
@@ -228,7 +229,7 @@ export class SceneManager {
   }
 
   spawnTrees(count) {
-    const attempts = count * 10; // Try more times since we're only looking for dirt tiles
+    const attempts = count * 30; // Try more times since we're only looking for dirt tiles
     let spawned = 0;
 
     for (let i = 0; i < attempts && spawned < count; i++) {
@@ -236,23 +237,20 @@ export class SceneManager {
       const tileZ = Math.floor(Math.random() * this.tileGrid.height);
       const tile = this.tileGrid.getTile(tileX, tileZ);
 
-      if (tile && tile.walkable && !tile.occupied) {
-        // Trees only grow on dirt - convert grass to dirt if needed
-        if (tile.type !== 'dirt' && tile.type !== 'sand') {
-          // Convert grass tile to dirt for the tree
-          tile.type = 'dirt';
+      // Trees ONLY spawn on dirt tiles (no conversion)
+      if (tile && tile.walkable && !tile.occupied && tile.type === 'dirt') {
+        // Vary tree size between 0.7 and 1.3 scale
+        const sizeVariation = 0.7 + Math.random() * 0.6;
+        const tree = new Tree(this.scene, this.tileGrid, tileX, tileZ, sizeVariation);
+        this.worldObjects.push(tree);
+        if (this.interactionManager) {
+          this.interactionManager.addObject(tree);
         }
-        
-        // Only spawn on dirt (now guaranteed to be dirt)
-        if (tile.type === 'dirt') {
-          // Vary tree size between 0.7 and 1.3 scale
-          const sizeVariation = 0.7 + Math.random() * 0.6;
-          const tree = new Tree(this.scene, this.tileGrid, tileX, tileZ, sizeVariation);
-          this.worldObjects.push(tree);
-          spawned++;
-        }
+        spawned++;
       }
     }
+    
+    console.log(`Spawned ${spawned} trees out of ${count} requested`);
   }
 
   spawnResource(worldX, worldZ, type, count = 1) {
@@ -340,7 +338,7 @@ export class SceneManager {
   }
 
   spawnSticks(count) {
-    const attempts = count * 3;
+    const attempts = count * 25; // Try more times since we're only looking for dirt tiles
     let spawned = 0;
 
     for (let i = 0; i < attempts && spawned < count; i++) {
@@ -348,13 +346,18 @@ export class SceneManager {
       const tileZ = Math.floor(Math.random() * this.tileGrid.height);
       const tile = this.tileGrid.getTile(tileX, tileZ);
 
-      if (tile && tile.walkable && !tile.occupied) {
-        // Spawn sticks anywhere on the map
+      // Sticks ONLY spawn on dirt tiles
+      if (tile && tile.walkable && !tile.occupied && tile.type === 'dirt') {
         const stick = new Resource(this.scene, this.tileGrid, tile.worldX, tile.worldZ, 'stick');
         this.worldObjects.push(stick);
+        if (this.interactionManager) {
+          this.interactionManager.addObject(stick);
+        }
         spawned++;
       }
     }
+    
+    console.log(`Spawned ${spawned} sticks out of ${count} requested`);
   }
 
   onWindowResize() {
