@@ -6,6 +6,7 @@ export class SettingsMenu {
     this.element = null;
     this.gridVisible = true; // Default to visible
     this.musicVolume = 0.5;
+    this.menuMusicVolume = 0.5;
     this.sfxVolume = 0.7;
     this.musicMuted = false;
     this.sfxMuted = false;
@@ -42,6 +43,11 @@ export class SettingsMenu {
         this.musicVolume = parseFloat(savedMusicVolume);
       }
       
+      const savedMenuMusicVolume = localStorage.getItem('taskforge_menuMusicVolume');
+      if (savedMenuMusicVolume !== null) {
+        this.menuMusicVolume = parseFloat(savedMenuMusicVolume);
+      }
+      
       const savedSfxVolume = localStorage.getItem('taskforge_sfxVolume');
       if (savedSfxVolume !== null) {
         this.sfxVolume = parseFloat(savedSfxVolume);
@@ -64,6 +70,7 @@ export class SettingsMenu {
   saveAudioSettings() {
     try {
       localStorage.setItem('taskforge_musicVolume', this.musicVolume.toString());
+      localStorage.setItem('taskforge_menuMusicVolume', this.menuMusicVolume.toString());
       localStorage.setItem('taskforge_sfxVolume', this.sfxVolume.toString());
       localStorage.setItem('taskforge_musicMuted', this.musicMuted.toString());
       localStorage.setItem('taskforge_sfxMuted', this.sfxMuted.toString());
@@ -110,6 +117,18 @@ export class SettingsMenu {
                     <input type="range" class="volume-slider" id="sfx-volume-slider" min="0" max="100" value="${Math.round(this.sfxVolume * 100)}">
                     <label class="mute-checkbox-label">
                       <input type="checkbox" class="mute-checkbox" id="sfx-mute-checkbox" ${!this.sfxMuted ? 'checked' : ''}>
+                      <span class="mute-checkbox-icon"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-option audio-option">
+                <div class="audio-control-row">
+                  <span class="settings-label">Main Menu Music Volume</span>
+                  <div class="audio-controls">
+                    <input type="range" class="volume-slider" id="menu-music-volume-slider" min="0" max="100" value="${Math.round(this.menuMusicVolume * 100)}">
+                    <label class="mute-checkbox-label">
+                      <input type="checkbox" class="mute-checkbox" id="menu-music-mute-checkbox" ${!this.musicMuted ? 'checked' : ''}>
                       <span class="mute-checkbox-icon"></span>
                     </label>
                   </div>
@@ -189,8 +208,7 @@ export class SettingsMenu {
         border: 3px solid #34495e;
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        min-width: 400px;
-        max-width: 500px;
+        width: 650px;
         animation: fadeInScale 0.3s ease-out;
       }
 
@@ -282,6 +300,8 @@ export class SettingsMenu {
         font-family: 'Arial', sans-serif;
         font-weight: 600;
         flex-shrink: 0;
+        width: 200px;
+        text-align: left;
       }
 
       .audio-option {
@@ -302,17 +322,17 @@ export class SettingsMenu {
         align-items: center;
         gap: 15px;
         flex: 1;
-        justify-content: flex-end;
+        justify-content: flex-start;
       }
 
       .volume-slider {
-        flex: 1;
-        max-width: 200px;
+        width: 250px;
         height: 6px;
         border-radius: 3px;
         background: #e0e0e0;
         outline: none;
         -webkit-appearance: none;
+        flex-shrink: 0;
       }
 
       .volume-slider::-webkit-slider-thumb {
@@ -533,8 +553,10 @@ export class SettingsMenu {
     const closeButton = this.element.querySelector('#close-settings-button');
     const tabButtons = this.element.querySelectorAll('.settings-tab');
     const sfxVolumeSlider = this.element.querySelector('#sfx-volume-slider');
+    const menuMusicVolumeSlider = this.element.querySelector('#menu-music-volume-slider');
     const musicVolumeSlider = this.element.querySelector('#music-volume-slider');
     const sfxMuteCheckbox = this.element.querySelector('#sfx-mute-checkbox');
+    const menuMusicMuteCheckbox = this.element.querySelector('#menu-music-mute-checkbox');
     const musicMuteCheckbox = this.element.querySelector('#music-mute-checkbox');
 
     // Tab switching
@@ -566,6 +588,16 @@ export class SettingsMenu {
       });
     }
 
+    if (menuMusicVolumeSlider) {
+      menuMusicVolumeSlider.addEventListener('input', (e) => {
+        this.menuMusicVolume = parseFloat(e.target.value) / 100;
+        if (this.audioManager) {
+          this.audioManager.setMenuMusicVolume(this.menuMusicVolume);
+        }
+        this.saveAudioSettings();
+      });
+    }
+
     if (musicVolumeSlider) {
       musicVolumeSlider.addEventListener('input', (e) => {
         this.musicVolume = parseFloat(e.target.value) / 100;
@@ -585,9 +617,25 @@ export class SettingsMenu {
       });
     }
 
+    if (menuMusicMuteCheckbox) {
+      menuMusicMuteCheckbox.addEventListener('change', (e) => {
+        this.musicMuted = !e.target.checked;
+        // Sync the other music mute checkbox
+        if (musicMuteCheckbox) {
+          musicMuteCheckbox.checked = e.target.checked;
+        }
+        this.applyAudioSettings();
+        this.saveAudioSettings();
+      });
+    }
+
     if (musicMuteCheckbox) {
       musicMuteCheckbox.addEventListener('change', (e) => {
         this.musicMuted = !e.target.checked;
+        // Sync the menu music mute checkbox
+        if (menuMusicMuteCheckbox) {
+          menuMusicMuteCheckbox.checked = e.target.checked;
+        }
         this.applyAudioSettings();
         this.saveAudioSettings();
       });
@@ -691,6 +739,7 @@ export class SettingsMenu {
   applyAudioSettings() {
     if (this.audioManager) {
       this.audioManager.setMusicVolume(this.musicVolume);
+      this.audioManager.setMenuMusicVolume(this.menuMusicVolume);
       this.audioManager.setSFXVolume(this.sfxVolume);
       
       // Store mute states in AudioManager for reference when new sounds play
@@ -723,18 +772,26 @@ export class SettingsMenu {
     
     // Update UI sliders and checkboxes
     const sfxVolumeSlider = this.element.querySelector('#sfx-volume-slider');
+    const menuMusicVolumeSlider = this.element.querySelector('#menu-music-volume-slider');
     const musicVolumeSlider = this.element.querySelector('#music-volume-slider');
     const sfxMuteCheckbox = this.element.querySelector('#sfx-mute-checkbox');
+    const menuMusicMuteCheckbox = this.element.querySelector('#menu-music-mute-checkbox');
     const musicMuteCheckbox = this.element.querySelector('#music-mute-checkbox');
     
     if (sfxVolumeSlider) {
       sfxVolumeSlider.value = Math.round(this.sfxVolume * 100);
+    }
+    if (menuMusicVolumeSlider) {
+      menuMusicVolumeSlider.value = Math.round(this.menuMusicVolume * 100);
     }
     if (musicVolumeSlider) {
       musicVolumeSlider.value = Math.round(this.musicVolume * 100);
     }
     if (sfxMuteCheckbox) {
       sfxMuteCheckbox.checked = !this.sfxMuted;
+    }
+    if (menuMusicMuteCheckbox) {
+      menuMusicMuteCheckbox.checked = !this.musicMuted;
     }
     if (musicMuteCheckbox) {
       musicMuteCheckbox.checked = !this.musicMuted;

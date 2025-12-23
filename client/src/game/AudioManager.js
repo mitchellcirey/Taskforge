@@ -4,6 +4,7 @@ export class AudioManager {
     this.sounds = new Map();
     this.currentMusic = null;
     this.musicVolume = 0.5;
+    this.menuMusicVolume = 0.5;
     this.sfxVolume = 0.7;
     this.isMuted = false;
     this.musicMuted = false;
@@ -11,7 +12,7 @@ export class AudioManager {
     this.gameplayMusicTracks = [];
     this.currentGameplayTrackIndex = 0;
     
-    // Load mute states from localStorage
+    // Load mute states and menu music volume from localStorage
     try {
       const savedMusicMuted = localStorage.getItem('taskforge_musicMuted');
       if (savedMusicMuted !== null) {
@@ -21,8 +22,12 @@ export class AudioManager {
       if (savedSfxMuted !== null) {
         this.sfxMuted = savedSfxMuted === 'true';
       }
+      const savedMenuMusicVolume = localStorage.getItem('taskforge_menuMusicVolume');
+      if (savedMenuMusicVolume !== null) {
+        this.menuMusicVolume = parseFloat(savedMenuMusicVolume);
+      }
     } catch (error) {
-      console.warn('Failed to load mute states:', error);
+      console.warn('Failed to load audio settings:', error);
     }
   }
 
@@ -80,7 +85,8 @@ export class AudioManager {
     const music = this.sounds.get(name);
     if (music) {
       music.loop = loop;
-      music.volume = this.musicVolume;
+      // Use menuMusicVolume for main_menu track, musicVolume for gameplay tracks
+      music.volume = name === 'main_menu' ? this.menuMusicVolume : this.musicVolume;
       music.muted = this.musicMuted;
       this.currentMusic = music;
       music.play().catch(e => {
@@ -99,8 +105,18 @@ export class AudioManager {
 
   setMusicVolume(volume) {
     this.musicVolume = Math.max(0, Math.min(1, volume));
-    if (this.currentMusic) {
+    // Only update current music volume if it's not the menu music
+    if (this.currentMusic && this.currentMusic !== this.sounds.get('main_menu')) {
       this.currentMusic.volume = this.musicVolume;
+    }
+  }
+
+  setMenuMusicVolume(volume) {
+    this.menuMusicVolume = Math.max(0, Math.min(1, volume));
+    // Update menu music volume if it's currently playing
+    const menuMusic = this.sounds.get('main_menu');
+    if (menuMusic && this.currentMusic === menuMusic) {
+      this.currentMusic.volume = this.menuMusicVolume;
     }
   }
 

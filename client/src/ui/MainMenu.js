@@ -393,20 +393,10 @@ export class MainMenu {
       this.container.appendChild(this.element);
     }
     this.element.classList.remove('hidden');
-    
-    // Play menu music
-    if (this.audioManager) {
-      this.audioManager.playMusic('main_menu');
-    }
   }
 
   hide() {
     this.element.classList.add('hidden');
-    
-    // Stop menu music
-    if (this.audioManager) {
-      this.audioManager.stopMusic();
-    }
   }
 
   onPlay(callback) {

@@ -3,7 +3,6 @@ import { LoadingScreen } from '../ui/LoadingScreen.js';
 import { MainMenu } from '../ui/MainMenu.js';
 import { PauseMenu } from '../ui/PauseMenu.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
-import { MainMenuSettings } from '../ui/MainMenuSettings.js';
 import { CreditsMenu } from '../ui/CreditsMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
@@ -24,7 +23,6 @@ export class Game {
     this.mainMenu = null;
     this.pauseMenu = null;
     this.settingsMenu = null;
-    this.mainMenuSettings = null;
     this.creditsMenu = null;
     this.adminMenu = null;
     this.versionWatermark = null;
@@ -113,10 +111,9 @@ export class Game {
       // TODO: Implement achievements system
     });
     this.mainMenu.onSettings(() => {
-      // Open main menu settings
-      this.mainMenu.hide();
-      if (this.mainMenuSettings) {
-        this.mainMenuSettings.show();
+      // Open settings menu
+      if (this.settingsMenu) {
+        this.settingsMenu.show();
       }
     });
     this.mainMenu.onCredits(() => {
@@ -128,15 +125,6 @@ export class Game {
     });
     this.mainMenu.show();
 
-    // Create main menu settings
-    this.mainMenuSettings = new MainMenuSettings(this.container);
-    this.mainMenuSettings.onClose(() => {
-      // Return to main menu when settings is closed
-      if (this.gameState.getState() === GameState.MENU) {
-        this.mainMenu.show();
-      }
-    });
-
     // Create credits menu
     this.creditsMenu = new CreditsMenu(this.container);
     this.creditsMenu.onClose(() => {
@@ -146,14 +134,16 @@ export class Game {
       }
     });
 
-    // Create in-game settings menu (will be updated when game starts)
+    // Create settings menu (used both in main menu and in-game)
     this.settingsMenu = new SettingsMenu(this.container, null, this.audioManager);
     // Apply audio settings after sounds are loaded
     this.settingsMenu.applyAudioSettings();
     this.settingsMenu.onClose(() => {
       // Return to appropriate menu when settings is closed
-      if (this.gameState.getState() === 'paused') {
+      if (this.gameState.getState() === GameState.PAUSED) {
         this.pauseMenu.show();
+      } else if (this.gameState.getState() === GameState.MENU) {
+        this.mainMenu.show();
       }
     });
 
@@ -213,8 +203,19 @@ export class Game {
     // Create version watermark (always visible)
     this.versionWatermark = new VersionWatermark(this.container);
 
-    // Set initial state
+    // Add GameState listener to automatically manage menu music
+    this.gameState.onStateChange('*', (newState, oldState) => {
+      this.handleStateChange(newState, oldState);
+    });
+
+    // Set initial state (this will trigger the listener and start menu music)
     this.gameState.setState(GameState.MENU);
+    
+    // Manually trigger menu music if we're starting in MENU state
+    // (since setState won't trigger if state hasn't changed)
+    if (this.gameState.getState() === GameState.MENU) {
+      this.audioManager.playMusic('main_menu');
+    }
 
     // Hide loading screen
     this.loadingScreen.hide();
@@ -223,6 +224,20 @@ export class Game {
     this.isInitialized = true;
     this.lastTime = performance.now();
     this.gameLoop();
+  }
+
+  handleStateChange(newState, oldState) {
+    // Automatically manage menu music based on game state
+    if (newState === GameState.MENU) {
+      // Play menu music when entering menu state
+      this.audioManager.playMusic('main_menu');
+    } else if (newState === GameState.PLAYING || newState === GameState.PAUSED || newState === GameState.LOADING) {
+      // Stop menu music when leaving menu state
+      // Only stop if we're transitioning from MENU (to avoid stopping gameplay music)
+      if (oldState === GameState.MENU) {
+        this.audioManager.stopMusic();
+      }
+    }
   }
 
   async startGame() {
