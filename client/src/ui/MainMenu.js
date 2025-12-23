@@ -76,14 +76,10 @@ export class MainMenu {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: linear-gradient(180deg, #87CEEB 0%, #B0E0E6 50%, #87CEEB 100%);
-        background-size: 100% 200%;
-        animation: skyShift 20s ease infinite;
-      }
-
-      @keyframes skyShift {
-        0%, 100% { background-position: 0% 0%; }
-        50% { background-position: 0% 100%; }
+        background-image: url('public/images/bgmenu.png');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
       }
 
       .menu-background::before {
@@ -93,22 +89,7 @@ export class MainMenu {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: 
-          radial-gradient(circle at 20% 30%, rgba(135, 206, 235, 0.3) 0%, transparent 50%),
-          radial-gradient(circle at 80% 70%, rgba(176, 224, 230, 0.3) 0%, transparent 50%),
-          repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 2px,
-            rgba(255, 255, 255, 0.03) 2px,
-            rgba(255, 255, 255, 0.03) 4px
-          );
-        animation: cloudDrift 30s ease-in-out infinite;
-      }
-
-      @keyframes cloudDrift {
-        0%, 100% { transform: translateX(0); }
-        50% { transform: translateX(20px); }
+        background: rgba(0, 0, 0, 0.5);
       }
 
       .menu-content {

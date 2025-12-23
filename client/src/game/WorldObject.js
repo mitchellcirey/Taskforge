@@ -46,6 +46,15 @@ export class WorldObject {
     };
   }
 
+  /**
+   * Returns a string identifier for save/load serialization.
+   * Override in subclasses to return specific type identifiers.
+   * @returns {string} Type identifier for this object
+   */
+  getSaveType() {
+    return 'worldobject'; // Default type for base class
+  }
+
   canInteract(playerPosition) {
     if (!this.isInteractable) return false;
     if (!this.tileGrid || !playerPosition) return false;

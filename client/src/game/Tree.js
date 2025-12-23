@@ -22,6 +22,10 @@ export class Tree extends WorldObject {
     this.create();
   }
 
+  getSaveType() {
+    return 'tree';
+  }
+
   create() {
     // Create multi-tiered low-poly evergreen tree matching the image style
     const group = new THREE.Group();

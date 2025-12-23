@@ -344,7 +344,8 @@ export class SceneManager {
         }
       }
     });
-    this.worldObjects = [];
+    // Clear array while preserving reference for InteractionManager
+    this.worldObjects.length = 0;
 
     // Clear buildings
     if (this.buildingManager) {

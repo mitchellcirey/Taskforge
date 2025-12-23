@@ -397,8 +397,11 @@ export class Game {
         return;
       }
 
+      // Migrate save data to current version
+      const migratedData = this.saveManager.migrateSaveData(result.data);
+      
       // Validate save data
-      this.saveManager.validateSaveData(result.data);
+      this.saveManager.validateSaveData(migratedData);
 
       // Initialize scene manager if not already initialized
       if (!this.sceneManager) {
@@ -416,8 +419,8 @@ export class Game {
         this.sceneManager.clearWorld();
       }
 
-      // Restore world from save data
-      this.sceneManager.restoreFromSave(result.data);
+      // Restore world from migrated save data
+      this.sceneManager.restoreFromSave(migratedData);
 
       // Start the game
       this.gameState.setState(GameState.PLAYING);

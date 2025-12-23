@@ -25,6 +25,10 @@ export class Resource extends WorldObject {
     this.create();
   }
 
+  getSaveType() {
+    return 'resource';
+  }
+
   create() {
     // Get the item type from the registry
     const itemType = getItemType(this.type);

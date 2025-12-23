@@ -1,11 +1,12 @@
 export class SaveManager {
   constructor() {
-    this.version = '1.0.0'; // Save format version
+    this.CURRENT_VERSION = '1.1.0'; // Current save format version
+    this.version = this.CURRENT_VERSION; // For backwards compatibility
   }
 
   serialize(sceneManager, cameraController) {
     const saveData = {
-      version: this.version,
+      version: this.CURRENT_VERSION,
       timestamp: new Date().toISOString(),
       player: this.serializePlayer(sceneManager.player),
       buildings: this.serializeBuildings(sceneManager.buildingManager?.buildings || []),
@@ -64,13 +65,16 @@ export class SaveManager {
     const resources = [];
     
     worldObjects.forEach(obj => {
-      if (obj.constructor.name === 'Tree') {
+      // Use getSaveType() method for robust type identification
+      const saveType = obj.getSaveType ? obj.getSaveType() : null;
+      
+      if (saveType === 'tree') {
         trees.push({
           tileX: obj.tileX,
           tileZ: obj.tileZ,
           sizeVariation: obj.sizeVariation || 1.0
         });
-      } else if (obj.constructor.name === 'Resource') {
+      } else if (saveType === 'resource') {
         resources.push({
           tileX: obj.tileX,
           tileZ: obj.tileZ,
@@ -118,21 +122,110 @@ export class SaveManager {
     };
   }
 
+  /**
+   * Migrates save data from older versions to the current version
+   * @param {Object} data - The save data to migrate
+   * @returns {Object} - Migrated save data
+   */
+  migrateSaveData(data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid save data: not an object');
+    }
+
+    // If no version, assume it's version 1.0.0 (oldest)
+    const saveVersion = data.version || '1.0.0';
+    
+    // If already at current version, no migration needed
+    if (saveVersion === this.CURRENT_VERSION) {
+      return data;
+    }
+
+    console.log(`Migrating save data from version ${saveVersion} to ${this.CURRENT_VERSION}`);
+
+    // Start with a copy of the data
+    let migratedData = JSON.parse(JSON.stringify(data));
+
+    // Version 1.0.0 -> 1.1.0 migration
+    // Changes:
+    // - No structural changes, just ensuring compatibility with getSaveType() system
+    // - Old saves using constructor.name will still work due to backward compatibility in restoreFromSave
+    if (this.compareVersions(saveVersion, '1.1.0') < 0) {
+      // Ensure all required fields exist with defaults
+      if (!migratedData.player) {
+        migratedData.player = { tileX: 0, tileZ: 0, inventory: null };
+      }
+      if (!migratedData.buildings) {
+        migratedData.buildings = [];
+      }
+      if (!migratedData.worldObjects) {
+        migratedData.worldObjects = { trees: [], resources: [] };
+      }
+      if (!migratedData.villagers) {
+        migratedData.villagers = [];
+      }
+      if (!migratedData.camera) {
+        migratedData.camera = null;
+      }
+      
+      migratedData.version = '1.1.0';
+    }
+
+    // Update to current version
+    migratedData.version = this.CURRENT_VERSION;
+    
+    return migratedData;
+  }
+
+  /**
+   * Compares two version strings (e.g., '1.0.0' vs '1.1.0')
+   * @param {string} version1 - First version string
+   * @param {string} version2 - Second version string
+   * @returns {number} - Negative if version1 < version2, positive if version1 > version2, 0 if equal
+   */
+  compareVersions(version1, version2) {
+    const v1parts = version1.split('.').map(Number);
+    const v2parts = version2.split('.').map(Number);
+    
+    const maxLength = Math.max(v1parts.length, v2parts.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+      const v1part = v1parts[i] || 0;
+      const v2part = v2parts[i] || 0;
+      
+      if (v1part < v2part) return -1;
+      if (v1part > v2part) return 1;
+    }
+    
+    return 0;
+  }
+
   // Validation
   validateSaveData(data) {
     if (!data || typeof data !== 'object') {
       throw new Error('Invalid save data: not an object');
     }
     
-    if (!data.version) {
-      throw new Error('Invalid save data: missing version');
+    // Version is optional (will be set by migration)
+    // But if present, it should be valid
+    if (data.version && typeof data.version !== 'string') {
+      throw new Error('Invalid save data: version must be a string');
     }
     
-    // Check for required top-level fields
+    // Check for required top-level fields (with more lenient checking)
     const requiredFields = ['player', 'buildings', 'worldObjects', 'villagers'];
     for (const field of requiredFields) {
       if (!(field in data)) {
-        throw new Error(`Invalid save data: missing field '${field}'`);
+        // Provide defaults for missing fields rather than throwing
+        console.warn(`Save data missing field '${field}', using default`);
+        if (field === 'player') {
+          data.player = { tileX: 0, tileZ: 0, inventory: null };
+        } else if (field === 'buildings') {
+          data.buildings = [];
+        } else if (field === 'worldObjects') {
+          data.worldObjects = { trees: [], resources: [] };
+        } else if (field === 'villagers') {
+          data.villagers = [];
+        }
       }
     }
     
