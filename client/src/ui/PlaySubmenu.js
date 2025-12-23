@@ -1,44 +1,42 @@
-export class PauseMenu {
-  constructor(container, gameState) {
+export class PlaySubmenu {
+  constructor(container) {
     this.container = container;
-    this.gameState = gameState;
     this.element = null;
-    this.onResumeCallback = null;
-    this.onQuitToMenuCallback = null;
-    this.onSettingsCallback = null;
-    this.onSaveWorldCallback = null;
+    this.onNewGameCallback = null;
+    this.onLoadGameCallback = null;
+    this.onMultiplayerCallback = null;
+    this.onBackCallback = null;
     this.create();
-    this.setupKeyboardListener();
   }
 
   create() {
     this.element = document.createElement('div');
-    this.element.id = 'pause-menu';
+    this.element.id = 'play-submenu';
     this.element.innerHTML = `
-      <div class="pause-background"></div>
-      <div class="pause-content">
-        <h2 class="pause-title">Paused</h2>
-        <div class="pause-buttons">
-          <button class="pause-button" id="resume-button">
-            <span class="button-text">Resume</span>
+      <div class="submenu-background"></div>
+      <div class="submenu-content">
+        <h2 class="submenu-title">Play</h2>
+        <div class="submenu-buttons">
+          <button class="submenu-button" id="new-game-button">
+            <span class="button-text">New Game</span>
           </button>
-          <button class="pause-button" id="save-world-button">
-            <span class="button-text">Save World</span>
+          <button class="submenu-button" id="load-game-button">
+            <span class="button-text">Load Game</span>
           </button>
-          <button class="pause-button" id="settings-button">
-            <span class="button-text">Settings</span>
+          <button class="submenu-button" id="multiplayer-button">
+            <span class="button-text">Multiplayer</span>
           </button>
-          <button class="pause-button" id="quit-to-menu-button">
-            <span class="button-text">Quit to Menu</span>
+          <button class="submenu-button" id="back-button">
+            <span class="button-text">Back</span>
           </button>
         </div>
       </div>
     `;
 
-    // Add styles
+    // Add styles (similar to pause menu style)
     const style = document.createElement('style');
     style.textContent = `
-      #pause-menu {
+      #play-submenu {
         position: fixed;
         top: 0;
         left: 0;
@@ -47,15 +45,15 @@ export class PauseMenu {
         display: none;
         justify-content: center;
         align-items: center;
-        z-index: 3000;
+        z-index: 2500;
         backdrop-filter: blur(8px);
       }
 
-      #pause-menu.visible {
+      #play-submenu.visible {
         display: flex;
       }
 
-      .pause-background {
+      .submenu-background {
         position: absolute;
         top: 0;
         left: 0;
@@ -72,7 +70,7 @@ export class PauseMenu {
         50% { background-position: 0% 100%; }
       }
 
-      .pause-content {
+      .submenu-content {
         position: relative;
         z-index: 1;
         text-align: center;
@@ -96,7 +94,7 @@ export class PauseMenu {
         }
       }
 
-      .pause-title {
+      .submenu-title {
         color: #1a1a1a;
         font-size: 42px;
         margin: 0 0 40px 0;
@@ -107,7 +105,7 @@ export class PauseMenu {
         text-transform: uppercase;
       }
 
-      .pause-buttons {
+      .submenu-buttons {
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -115,7 +113,7 @@ export class PauseMenu {
         width: 100%;
       }
 
-      .pause-button {
+      .submenu-button {
         position: relative;
         background: rgba(255, 255, 255, 0.95);
         border: 3px solid #34495e;
@@ -135,7 +133,7 @@ export class PauseMenu {
         overflow: hidden;
       }
 
-      .pause-button::before {
+      .submenu-button::before {
         content: '';
         position: absolute;
         top: 0;
@@ -146,18 +144,18 @@ export class PauseMenu {
         transition: left 0.4s ease;
       }
 
-      .pause-button:hover::before {
+      .submenu-button:hover::before {
         left: 100%;
       }
 
-      .pause-button:hover {
+      .submenu-button:hover {
         background: rgba(255, 255, 255, 1);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
         transform: translateY(-2px);
         border-color: #2c3e50;
       }
 
-      .pause-button:active {
+      .submenu-button:active {
         transform: translateY(0);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       }
@@ -173,49 +171,36 @@ export class PauseMenu {
   }
 
   setupEventListeners() {
-    const resumeButton = this.element.querySelector('#resume-button');
-    const saveWorldButton = this.element.querySelector('#save-world-button');
-    const settingsButton = this.element.querySelector('#settings-button');
-    const quitToMenuButton = this.element.querySelector('#quit-to-menu-button');
+    const newGameButton = this.element.querySelector('#new-game-button');
+    const loadGameButton = this.element.querySelector('#load-game-button');
+    const multiplayerButton = this.element.querySelector('#multiplayer-button');
+    const backButton = this.element.querySelector('#back-button');
 
-    resumeButton.addEventListener('click', () => {
+    newGameButton.addEventListener('click', () => {
       this.hide();
-      if (this.onResumeCallback) {
-        this.onResumeCallback();
+      if (this.onNewGameCallback) {
+        this.onNewGameCallback();
       }
     });
 
-    saveWorldButton.addEventListener('click', () => {
-      if (this.onSaveWorldCallback) {
-        this.onSaveWorldCallback();
-      }
-    });
-
-    settingsButton.addEventListener('click', () => {
-      this.hide(); // Hide pause menu when opening settings
-      if (this.onSettingsCallback) {
-        this.onSettingsCallback();
-      }
-    });
-
-    quitToMenuButton.addEventListener('click', () => {
+    loadGameButton.addEventListener('click', () => {
       this.hide();
-      if (this.onQuitToMenuCallback) {
-        this.onQuitToMenuCallback();
+      if (this.onLoadGameCallback) {
+        this.onLoadGameCallback();
       }
     });
-  }
 
-  setupKeyboardListener() {
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (this.gameState.getState() === 'playing') {
-          this.show();
-          this.gameState.setState('paused');
-        } else if (this.gameState.getState() === 'paused') {
-          this.hide();
-          this.gameState.setState('playing');
-        }
+    multiplayerButton.addEventListener('click', () => {
+      this.hide();
+      if (this.onMultiplayerCallback) {
+        this.onMultiplayerCallback();
+      }
+    });
+
+    backButton.addEventListener('click', () => {
+      this.hide();
+      if (this.onBackCallback) {
+        this.onBackCallback();
       }
     });
   }
@@ -231,20 +216,20 @@ export class PauseMenu {
     this.element.classList.remove('visible');
   }
 
-  onResume(callback) {
-    this.onResumeCallback = callback;
+  onNewGame(callback) {
+    this.onNewGameCallback = callback;
   }
 
-  onQuitToMenu(callback) {
-    this.onQuitToMenuCallback = callback;
+  onLoadGame(callback) {
+    this.onLoadGameCallback = callback;
   }
 
-  onSettings(callback) {
-    this.onSettingsCallback = callback;
+  onMultiplayer(callback) {
+    this.onMultiplayerCallback = callback;
   }
 
-  onSaveWorld(callback) {
-    this.onSaveWorldCallback = callback;
+  onBack(callback) {
+    this.onBackCallback = callback;
   }
 
   destroy() {

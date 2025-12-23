@@ -133,6 +133,21 @@ export class TileGrid {
     gridGroup.position.y = 0.01; // Slightly above ground
     this.scene.add(gridGroup);
     this.gridHelper = gridGroup;
+    
+    // Load saved grid visibility setting from localStorage
+    try {
+      const saved = localStorage.getItem('taskforge_gridVisible');
+      if (saved !== null) {
+        this.gridHelper.visible = saved === 'true';
+      } else {
+        // Default to visible if no saved setting
+        this.gridHelper.visible = true;
+      }
+    } catch (error) {
+      console.warn('Failed to load grid visibility setting:', error);
+      // Default to visible on error
+      this.gridHelper.visible = true;
+    }
   }
 
   // Get tile by integer tile coordinates
@@ -148,8 +163,12 @@ export class TileGrid {
 
   // Convert world coordinates to tile coordinates (snaps to nearest tile)
   worldToTile(worldX, worldZ) {
-    const tileX = Math.floor(worldX / this.tileSize + this.width / 2);
-    const tileZ = Math.floor(worldZ / this.tileSize + this.height / 2);
+    // Convert to tile index space (can be fractional)
+    const tileIndexX = worldX / this.tileSize + this.width / 2;
+    const tileIndexZ = worldZ / this.tileSize + this.height / 2;
+    // Round to nearest integer tile
+    const tileX = Math.round(tileIndexX);
+    const tileZ = Math.round(tileIndexZ);
     return { tileX, tileZ };
   }
 

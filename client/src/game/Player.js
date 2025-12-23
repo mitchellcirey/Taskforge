@@ -223,8 +223,19 @@ export class Player {
       return false;
     }
 
-    const startTileX = this.currentTile ? this.currentTile.tileX : 0;
-    const startTileZ = this.currentTile ? this.currentTile.tileZ : 0;
+    // If player is already moving, use the next tile in the current path as starting point
+    // This prevents backwards movement when spam-clicking
+    let startTileX, startTileZ;
+    if (this.path.length > 0) {
+      // Player is moving - use the next destination tile as starting point
+      const nextTile = this.path[0];
+      startTileX = nextTile.tileX;
+      startTileZ = nextTile.tileZ;
+    } else {
+      // Player is stationary - use current tile
+      startTileX = this.currentTile ? this.currentTile.tileX : 0;
+      startTileZ = this.currentTile ? this.currentTile.tileZ : 0;
+    }
     
     this.path = this.pathfinder.findPath(startTileX, startTileZ, tileX, tileZ);
 

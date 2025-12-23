@@ -18,6 +18,7 @@ import { Terrain } from './Terrain.js';
 import { TileHighlighter } from './TileHighlighter.js';
 import { DestinationIndicator } from './DestinationIndicator.js';
 import { CompassUI } from '../ui/CompassUI.js';
+import { Program } from './programming/Program.js';
 
 export class SceneManager {
   constructor(container, audioManager = null) {
@@ -323,6 +324,241 @@ export class SceneManager {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  clearWorld() {
+    // Clear world objects
+    this.worldObjects.forEach(obj => {
+      if (obj.remove) {
+        obj.remove();
+      } else if (obj.mesh && this.scene) {
+        this.scene.remove(obj.mesh);
+        // Dispose of geometry and materials
+        if (obj.mesh.geometry) obj.mesh.geometry.dispose();
+        if (obj.mesh.material) {
+          if (Array.isArray(obj.mesh.material)) {
+            obj.mesh.material.forEach(mat => mat.dispose());
+          } else {
+            obj.mesh.material.dispose();
+          }
+        }
+      }
+    });
+    this.worldObjects = [];
+
+    // Clear buildings
+    if (this.buildingManager) {
+      this.buildingManager.buildings.forEach(building => {
+        if (building.remove) {
+          building.remove();
+        }
+      });
+      this.buildingManager.buildings = [];
+    }
+
+    // Clear villagers
+    if (this.villagerManager) {
+      this.villagerManager.villagers.forEach(villager => {
+        if (villager.mesh && this.scene) {
+          this.scene.remove(villager.mesh);
+          if (villager.mesh.geometry) villager.mesh.geometry.dispose();
+          if (villager.mesh.material) villager.mesh.material.dispose();
+        }
+      });
+      this.villagerManager.villagers = [];
+    }
+
+    // Reset player position (but keep player object)
+    if (this.player) {
+      // Player will be repositioned in restoreFromSave
+      // Just clear any paths/movement
+      this.player.path = [];
+      this.player.isMoving = false;
+      this.player.targetPosition = null;
+    }
+  }
+
+  restoreFromSave(saveData) {
+    // Clear existing world first
+    this.clearWorld();
+
+    // Restore player
+    if (saveData.player && this.player) {
+      const tile = this.tileGrid.getTile(saveData.player.tileX, saveData.player.tileZ);
+      if (tile) {
+        this.player.mesh.position.set(tile.worldX, this.player.mesh.position.y, tile.worldZ);
+        this.player.currentTile = tile;
+      }
+
+      // Restore inventory
+      if (saveData.player.inventory && this.player.inventory) {
+        this.restoreInventory(this.player.inventory, saveData.player.inventory);
+        if (this.player.updateHandItem) {
+          this.player.updateHandItem();
+        }
+      }
+    }
+
+    // Restore buildings
+    if (saveData.buildings && this.buildingManager) {
+      // Temporarily enable admin mode to skip resource deduction when restoring buildings
+      const wasAdminMode = window.adminMode;
+      window.adminMode = true;
+      
+      saveData.buildings.forEach(buildingData => {
+        // Set building rotation before placing (placeBuilding uses this.buildingRotation)
+        const savedRotation = buildingData.rotation || 0;
+        this.buildingManager.buildingRotation = (savedRotation * 180) / Math.PI; // Convert radians to degrees
+        
+        const building = this.buildingManager.placeBuilding(
+          buildingData.tileX,
+          buildingData.tileZ,
+          buildingData.buildingType
+        );
+        
+        if (building && building.mesh) {
+          // Ensure rotation is set correctly (placeBuilding should have set it, but verify)
+          building.mesh.rotation.y = savedRotation;
+
+          // Restore inventory for storage buildings
+          if (buildingData.buildingType === 'storage' && buildingData.inventory && building.inventory) {
+            building.inventory.storedItemType = buildingData.inventory.storedItemType;
+            building.inventory.count = buildingData.inventory.count || 0;
+            if (building.updateItemIcon) {
+              building.updateItemIcon();
+            }
+          }
+        }
+      });
+      
+      // Reset building rotation
+      this.buildingManager.buildingRotation = 0;
+      
+      // Restore admin mode state
+      window.adminMode = wasAdminMode;
+    }
+
+    // Restore world objects (trees and resources)
+    if (saveData.worldObjects) {
+      // Restore trees
+      if (saveData.worldObjects.trees) {
+        saveData.worldObjects.trees.forEach(treeData => {
+          const tree = new Tree(this.scene, this.tileGrid, treeData.tileX, treeData.tileZ, treeData.sizeVariation || 1.0);
+          this.worldObjects.push(tree);
+          
+          // Re-hook tree chop callback
+          const originalChop = tree.chop.bind(tree);
+          tree.chop = () => {
+            const result = originalChop();
+            if (result && result.type) {
+              const treeTilePos = tree.getTilePosition();
+              if (treeTilePos) {
+                for (let i = 0; i < result.count; i++) {
+                  const offsetX = Math.floor((Math.random() - 0.5) * 3);
+                  const offsetZ = Math.floor((Math.random() - 0.5) * 3);
+                  const nearbyTile = this.tileGrid.getTile(treeTilePos.tileX + offsetX, treeTilePos.tileZ + offsetZ);
+                  if (nearbyTile && nearbyTile.walkable) {
+                    this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.type);
+                  } else {
+                    const treeTile = this.tileGrid.getTile(treeTilePos.tileX, treeTilePos.tileZ);
+                    if (treeTile) {
+                      this.spawnResource(treeTile.worldX, treeTile.worldZ, result.type);
+                    }
+                  }
+                }
+              }
+            }
+          };
+        });
+      }
+
+      // Restore resources
+      if (saveData.worldObjects.resources) {
+        saveData.worldObjects.resources.forEach(resourceData => {
+          // Get tile to get proper world coordinates
+          const tile = this.tileGrid.getTile(resourceData.tileX, resourceData.tileZ);
+          if (tile) {
+            const resource = new Resource(
+              this.scene,
+              this.tileGrid,
+              tile.worldX,
+              tile.worldZ,
+              resourceData.type,
+              resourceData.count || 1
+            );
+            this.worldObjects.push(resource);
+            if (this.interactionManager) {
+              this.interactionManager.addObject(resource);
+            }
+          }
+        });
+      }
+    }
+
+    // Restore villagers
+    if (saveData.villagers && this.villagerManager) {
+      saveData.villagers.forEach(villagerData => {
+        const villager = this.villagerManager.spawnVillager(villagerData.tileX, villagerData.tileZ);
+        
+        // Restore inventory
+        if (villagerData.inventory) {
+          this.restoreInventory(villager.inventory, villagerData.inventory);
+        }
+
+        // Restore program if exists
+        if (villagerData.program) {
+          try {
+            const program = Program.deserialize(villagerData.program);
+            if (program && villager.setProgram) {
+              villager.setProgram(program);
+            }
+          } catch (e) {
+            console.warn('Could not restore villager program:', e);
+          }
+        }
+      });
+    }
+
+    // Restore camera
+    if (saveData.camera && this.cameraController) {
+      this.cameraController.focusPoint.set(
+        saveData.camera.focusPoint.x,
+        saveData.camera.focusPoint.y,
+        saveData.camera.focusPoint.z
+      );
+      this.cameraController.yaw = saveData.camera.yaw || this.cameraController.yaw;
+      this.cameraController.pitch = saveData.camera.pitch || this.cameraController.pitch;
+      this.cameraController.distance = saveData.camera.distance || this.cameraController.distance;
+      this.cameraController.updateCameraPosition();
+    }
+  }
+
+  restoreInventory(inventory, inventoryData) {
+    // Clear existing inventory
+    inventory.clear();
+
+    // Restore tool slots
+    if (inventoryData.toolSlots) {
+      inventoryData.toolSlots.forEach((tool, index) => {
+        if (tool) {
+          inventory.setToolSlot(index + 1, tool); // setToolSlot uses 1-based index
+        }
+      });
+    }
+
+    // Restore item slots
+    if (inventoryData.itemSlots) {
+      inventoryData.itemSlots.forEach((item, index) => {
+        if (item) {
+          inventory.setItemSlot(index + 3, item); // setItemSlot uses 3-6 (1-based)
+        }
+      });
+    }
+
+    // Restore selected slot
+    if (inventoryData.selectedSlot) {
+      inventory.setSelectedSlot(inventoryData.selectedSlot);
+    }
   }
 
   update(deltaTime) {

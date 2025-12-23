@@ -6,8 +6,24 @@ export class AudioManager {
     this.musicVolume = 0.5;
     this.sfxVolume = 0.7;
     this.isMuted = false;
+    this.musicMuted = false;
+    this.sfxMuted = false;
     this.gameplayMusicTracks = [];
     this.currentGameplayTrackIndex = 0;
+    
+    // Load mute states from localStorage
+    try {
+      const savedMusicMuted = localStorage.getItem('taskforge_musicMuted');
+      if (savedMusicMuted !== null) {
+        this.musicMuted = savedMusicMuted === 'true';
+      }
+      const savedSfxMuted = localStorage.getItem('taskforge_sfxMuted');
+      if (savedSfxMuted !== null) {
+        this.sfxMuted = savedSfxMuted === 'true';
+      }
+    } catch (error) {
+      console.warn('Failed to load mute states:', error);
+    }
   }
 
   init() {
@@ -23,6 +39,8 @@ export class AudioManager {
       const audio = new Audio(path);
       audio.loop = isMusic;
       audio.volume = isMusic ? this.musicVolume : this.sfxVolume;
+      // Apply mute state based on sound type
+      audio.muted = isMusic ? this.musicMuted : this.sfxMuted;
       
       audio.addEventListener('canplaythrough', () => {
         this.sounds.set(name, audio);
@@ -44,6 +62,8 @@ export class AudioManager {
       if (volume !== null) {
         sound.volume = volume;
       }
+      // Apply SFX mute state
+      sound.muted = this.sfxMuted;
       sound.currentTime = 0;
       sound.play().catch(e => {
         console.warn(`Could not play sound ${name}:`, e);
@@ -61,6 +81,7 @@ export class AudioManager {
     if (music) {
       music.loop = loop;
       music.volume = this.musicVolume;
+      music.muted = this.musicMuted;
       this.currentMusic = music;
       music.play().catch(e => {
         console.warn(`Could not play music ${name}:`, e);

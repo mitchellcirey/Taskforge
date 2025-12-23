@@ -1,36 +1,25 @@
-export class PauseMenu {
-  constructor(container, gameState) {
+export class MainMenuSettings {
+  constructor(container) {
     this.container = container;
-    this.gameState = gameState;
     this.element = null;
-    this.onResumeCallback = null;
-    this.onQuitToMenuCallback = null;
-    this.onSettingsCallback = null;
-    this.onSaveWorldCallback = null;
+    this.onCloseCallback = null;
     this.create();
-    this.setupKeyboardListener();
   }
 
   create() {
     this.element = document.createElement('div');
-    this.element.id = 'pause-menu';
+    this.element.id = 'main-menu-settings';
     this.element.innerHTML = `
-      <div class="pause-background"></div>
-      <div class="pause-content">
-        <h2 class="pause-title">Paused</h2>
-        <div class="pause-buttons">
-          <button class="pause-button" id="resume-button">
-            <span class="button-text">Resume</span>
-          </button>
-          <button class="pause-button" id="save-world-button">
-            <span class="button-text">Save World</span>
-          </button>
-          <button class="pause-button" id="settings-button">
-            <span class="button-text">Settings</span>
-          </button>
-          <button class="pause-button" id="quit-to-menu-button">
-            <span class="button-text">Quit to Menu</span>
-          </button>
+      <div class="settings-background"></div>
+      <div class="settings-content">
+        <h2 class="settings-title">Settings</h2>
+        <div class="settings-options">
+          <div class="settings-option">
+            <p class="settings-info">Main menu settings will be available here.</p>
+          </div>
+        </div>
+        <div class="settings-buttons">
+          <button class="settings-button" id="close-settings-button">Close</button>
         </div>
       </div>
     `;
@@ -38,7 +27,7 @@ export class PauseMenu {
     // Add styles
     const style = document.createElement('style');
     style.textContent = `
-      #pause-menu {
+      #main-menu-settings {
         position: fixed;
         top: 0;
         left: 0;
@@ -47,15 +36,15 @@ export class PauseMenu {
         display: none;
         justify-content: center;
         align-items: center;
-        z-index: 3000;
+        z-index: 5000;
         backdrop-filter: blur(8px);
       }
 
-      #pause-menu.visible {
+      #main-menu-settings.visible {
         display: flex;
       }
 
-      .pause-background {
+      .settings-background {
         position: absolute;
         top: 0;
         left: 0;
@@ -72,7 +61,7 @@ export class PauseMenu {
         50% { background-position: 0% 100%; }
       }
 
-      .pause-content {
+      .settings-content {
         position: relative;
         z-index: 1;
         text-align: center;
@@ -81,7 +70,8 @@ export class PauseMenu {
         border: 3px solid #34495e;
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        min-width: 350px;
+        min-width: 400px;
+        max-width: 500px;
         animation: fadeInScale 0.3s ease-out;
       }
 
@@ -96,7 +86,7 @@ export class PauseMenu {
         }
       }
 
-      .pause-title {
+      .settings-title {
         color: #1a1a1a;
         font-size: 42px;
         margin: 0 0 40px 0;
@@ -107,24 +97,45 @@ export class PauseMenu {
         text-transform: uppercase;
       }
 
-      .pause-buttons {
+      .settings-options {
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        align-items: center;
+        gap: 20px;
+        margin-bottom: 30px;
+        align-items: flex-start;
         width: 100%;
       }
 
-      .pause-button {
+      .settings-option {
+        width: 100%;
+      }
+
+      .settings-info {
+        color: #1a1a1a;
+        font-size: 16px;
+        font-family: 'Arial', sans-serif;
+        font-style: italic;
+        text-align: center;
+        margin: 0;
+        opacity: 0.8;
+      }
+
+      .settings-buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .settings-button {
         position: relative;
         background: rgba(255, 255, 255, 0.95);
         border: 3px solid #34495e;
         border-radius: 8px;
         color: #1a1a1a;
-        font-size: 20px;
-        padding: 14px 40px;
-        width: 100%;
-        min-width: 200px;
+        font-size: 18px;
+        padding: 12px 40px;
+        min-width: 150px;
         cursor: pointer;
         transition: all 0.2s ease;
         font-family: 'Arial', sans-serif;
@@ -135,7 +146,7 @@ export class PauseMenu {
         overflow: hidden;
       }
 
-      .pause-button::before {
+      .settings-button::before {
         content: '';
         position: absolute;
         top: 0;
@@ -146,76 +157,46 @@ export class PauseMenu {
         transition: left 0.4s ease;
       }
 
-      .pause-button:hover::before {
+      .settings-button:hover::before {
         left: 100%;
       }
 
-      .pause-button:hover {
+      .settings-button:hover {
         background: rgba(255, 255, 255, 1);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
         transform: translateY(-2px);
         border-color: #2c3e50;
       }
 
-      .pause-button:active {
+      .settings-button:active {
         transform: translateY(0);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-      }
-
-      .button-text {
-        position: relative;
-        z-index: 1;
       }
     `;
     document.head.appendChild(style);
 
     this.setupEventListeners();
-  }
-
-  setupEventListeners() {
-    const resumeButton = this.element.querySelector('#resume-button');
-    const saveWorldButton = this.element.querySelector('#save-world-button');
-    const settingsButton = this.element.querySelector('#settings-button');
-    const quitToMenuButton = this.element.querySelector('#quit-to-menu-button');
-
-    resumeButton.addEventListener('click', () => {
-      this.hide();
-      if (this.onResumeCallback) {
-        this.onResumeCallback();
-      }
-    });
-
-    saveWorldButton.addEventListener('click', () => {
-      if (this.onSaveWorldCallback) {
-        this.onSaveWorldCallback();
-      }
-    });
-
-    settingsButton.addEventListener('click', () => {
-      this.hide(); // Hide pause menu when opening settings
-      if (this.onSettingsCallback) {
-        this.onSettingsCallback();
-      }
-    });
-
-    quitToMenuButton.addEventListener('click', () => {
-      this.hide();
-      if (this.onQuitToMenuCallback) {
-        this.onQuitToMenuCallback();
-      }
-    });
+    this.setupKeyboardListener();
   }
 
   setupKeyboardListener() {
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (this.gameState.getState() === 'playing') {
-          this.show();
-          this.gameState.setState('paused');
-        } else if (this.gameState.getState() === 'paused') {
-          this.hide();
-          this.gameState.setState('playing');
+      if (e.key === 'Escape' && this.element.classList.contains('visible')) {
+        this.hide();
+        if (this.onCloseCallback) {
+          this.onCloseCallback();
         }
+      }
+    });
+  }
+
+  setupEventListeners() {
+    const closeButton = this.element.querySelector('#close-settings-button');
+
+    closeButton.addEventListener('click', () => {
+      this.hide();
+      if (this.onCloseCallback) {
+        this.onCloseCallback();
       }
     });
   }
@@ -231,20 +212,8 @@ export class PauseMenu {
     this.element.classList.remove('visible');
   }
 
-  onResume(callback) {
-    this.onResumeCallback = callback;
-  }
-
-  onQuitToMenu(callback) {
-    this.onQuitToMenuCallback = callback;
-  }
-
-  onSettings(callback) {
-    this.onSettingsCallback = callback;
-  }
-
-  onSaveWorld(callback) {
-    this.onSaveWorldCallback = callback;
+  onClose(callback) {
+    this.onCloseCallback = callback;
   }
 
   destroy() {
