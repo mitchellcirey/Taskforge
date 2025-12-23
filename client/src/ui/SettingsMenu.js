@@ -6,6 +6,7 @@ export class SettingsMenu {
     this.element = null;
     this.gridVisible = true; // Default to visible
     this.dayNightCycleEnabled = true; // Default to enabled
+    this.streamerMode = false; // Default to disabled
     this.musicVolume = 0.5;
     this.menuMusicVolume = 0.5;
     this.sfxVolume = 0.7;
@@ -30,6 +31,11 @@ export class SettingsMenu {
       if (savedDayNight !== null) {
         this.dayNightCycleEnabled = savedDayNight === 'true';
       }
+      
+      const savedStreamerMode = localStorage.getItem('taskforge_streamerMode');
+      if (savedStreamerMode !== null) {
+        this.streamerMode = savedStreamerMode === 'true';
+      }
     } catch (error) {
       console.warn('Failed to load settings:', error);
     }
@@ -39,6 +45,7 @@ export class SettingsMenu {
     try {
       localStorage.setItem('taskforge_gridVisible', this.gridVisible.toString());
       localStorage.setItem('taskforge_dayNightCycleEnabled', this.dayNightCycleEnabled.toString());
+      localStorage.setItem('taskforge_streamerMode', this.streamerMode.toString());
     } catch (error) {
       console.warn('Failed to save settings:', error);
     }
@@ -108,6 +115,12 @@ export class SettingsMenu {
         <div class="settings-tab-content">
           <div class="tab-panel ${this.activeTab === 'general' ? 'active' : ''}" id="general-tab">
             <div class="settings-options">
+              <div class="settings-option">
+                <span class="settings-label">Streamer Mode</span>
+                <button class="grid-toggle-button ${this.streamerMode ? 'on' : 'off'}" id="streamer-mode-toggle">
+                  ${this.streamerMode ? 'On' : 'Off'}
+                </button>
+              </div>
               ${this.tileGrid ? `
               <div class="settings-option">
                 <span class="settings-label">Show Grid</span>
@@ -571,6 +584,7 @@ export class SettingsMenu {
   setupEventListeners() {
     const gridToggle = this.element.querySelector('#grid-toggle');
     const dayNightToggle = this.element.querySelector('#daynight-toggle');
+    const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
     const closeButton = this.element.querySelector('#close-settings-button');
     const tabButtons = this.element.querySelectorAll('.settings-tab');
     const sfxVolumeSlider = this.element.querySelector('#sfx-volume-slider');
@@ -605,6 +619,17 @@ export class SettingsMenu {
         this.updateDayNightToggleButton();
         this.updateDayNightCycle();
         this.saveSettings();
+      });
+    }
+
+    // Streamer Mode toggle
+    if (streamerModeToggle) {
+      streamerModeToggle.addEventListener('click', () => {
+        this.streamerMode = !this.streamerMode;
+        this.updateStreamerModeToggleButton();
+        this.saveSettings();
+        // Notify version watermark to update
+        this.updateStreamerModeVisibility();
       });
     }
 
@@ -712,6 +737,21 @@ export class SettingsMenu {
     }
   }
 
+  updateStreamerModeToggleButton() {
+    const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
+    if (streamerModeToggle) {
+      streamerModeToggle.textContent = this.streamerMode ? 'On' : 'Off';
+      streamerModeToggle.className = `grid-toggle-button ${this.streamerMode ? 'on' : 'off'}`;
+    }
+  }
+
+  updateStreamerModeVisibility() {
+    // Notify version watermark to update
+    if (window.gameInstance && window.gameInstance.versionWatermark) {
+      window.gameInstance.versionWatermark.update();
+    }
+  }
+
   setTileGrid(tileGrid) {
     this.tileGrid = tileGrid;
     // Update the UI if settings menu is already created
@@ -719,6 +759,12 @@ export class SettingsMenu {
       const generalTabPanel = this.element.querySelector('#general-tab .settings-options');
       if (generalTabPanel && !generalTabPanel.querySelector('#grid-toggle')) {
         generalTabPanel.innerHTML = `
+          <div class="settings-option">
+            <span class="settings-label">Streamer Mode</span>
+            <button class="grid-toggle-button ${this.streamerMode ? 'on' : 'off'}" id="streamer-mode-toggle">
+              ${this.streamerMode ? 'On' : 'Off'}
+            </button>
+          </div>
           <div class="settings-option">
             <span class="settings-label">Show Grid</span>
             <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
@@ -748,6 +794,15 @@ export class SettingsMenu {
             this.updateDayNightToggleButton();
             this.updateDayNightCycle();
             this.saveSettings();
+          });
+        }
+        const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
+        if (streamerModeToggle) {
+          streamerModeToggle.addEventListener('click', () => {
+            this.streamerMode = !this.streamerMode;
+            this.updateStreamerModeToggleButton();
+            this.saveSettings();
+            this.updateStreamerModeVisibility();
           });
         }
       }
@@ -784,6 +839,7 @@ export class SettingsMenu {
     // Update toggle buttons to reflect current state
     this.updateToggleButton();
     this.updateDayNightToggleButton();
+    this.updateStreamerModeToggleButton();
     // Apply the settings
     this.updateGridVisibility();
     this.updateDayNightCycle();
