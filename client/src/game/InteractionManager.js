@@ -101,14 +101,16 @@ export class InteractionManager {
     // Collect all meshes including groups (objects and buildings)
     const allMeshes = [];
     
-    // Add world object meshes
+    // Add world object meshes - only include objects with valid meshes in the scene
     this.worldObjects.forEach(obj => {
-      if (obj.mesh) {
-        if (obj.mesh instanceof THREE.Group) {
-          obj.mesh.children.forEach(child => allMeshes.push(child));
-        } else {
-          allMeshes.push(obj.mesh);
-        }
+      // Skip objects without meshes or whose meshes aren't in the scene
+      if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
+        return;
+      }
+      if (obj.mesh instanceof THREE.Group) {
+        obj.mesh.children.forEach(child => allMeshes.push(child));
+      } else {
+        allMeshes.push(obj.mesh);
       }
     });
     
@@ -131,8 +133,12 @@ export class InteractionManager {
       // Find which object or building was hovered
       let hoveredObject = null;
       
-      // Check world objects first
+      // Check world objects first - only check objects with valid meshes
       for (const obj of this.worldObjects) {
+        // Skip objects without meshes or whose meshes aren't in the scene
+        if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
+          continue;
+        }
         if (obj.mesh instanceof THREE.Group) {
           if (obj.mesh.children.includes(intersects[0].object)) {
             hoveredObject = obj;
@@ -528,13 +534,16 @@ export class InteractionManager {
     
     // Check for object clicks (including resources which might be in a group)
     const allMeshes = [];
+    // Add world object meshes - only include objects with valid meshes in the scene
     this.worldObjects.forEach(obj => {
-      if (obj.mesh) {
-        if (obj.mesh instanceof THREE.Group) {
-          obj.mesh.children.forEach(child => allMeshes.push(child));
-        } else {
-          allMeshes.push(obj.mesh);
-        }
+      // Skip objects without meshes or whose meshes aren't in the scene
+      if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
+        return;
+      }
+      if (obj.mesh instanceof THREE.Group) {
+        obj.mesh.children.forEach(child => allMeshes.push(child));
+      } else {
+        allMeshes.push(obj.mesh);
       }
     });
 
@@ -543,7 +552,12 @@ export class InteractionManager {
     if (intersects.length > 0) {
       // Find which object was clicked
       let clickedObject = null;
+      // Check world objects - only check objects with valid meshes in the scene
       for (const obj of this.worldObjects) {
+        // Skip objects without meshes or whose meshes aren't in the scene
+        if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
+          continue;
+        }
         if (obj.mesh instanceof THREE.Group) {
           if (obj.mesh.children.includes(intersects[0].object)) {
             clickedObject = obj;
@@ -652,7 +666,8 @@ export class InteractionManager {
         if (tile) {
           // Find resources on this tile
           const resourceOnTile = this.worldObjects.find(obj => {
-            if (!obj || !obj.getTilePosition) return false;
+            // Skip objects without meshes or whose meshes aren't in the scene
+            if (!obj || !obj.getTilePosition || !obj.mesh || !this.scene.children.includes(obj.mesh)) return false;
             try {
               if (obj instanceof Resource || (obj.constructor && obj.constructor.name === 'Resource')) {
                 const objTilePos = obj.getTilePosition();
@@ -842,6 +857,8 @@ export class InteractionManager {
     if (tile) {
       // Check if there's already a resource of this type on this tile
       const existingResource = this.worldObjects.find(obj => {
+        // Skip objects without meshes or whose meshes aren't in the scene
+        if (!obj || !obj.mesh || !this.scene.children.includes(obj.mesh)) return false;
         if (obj instanceof Resource && obj.type === itemType) {
           const objTilePos = obj.getTilePosition();
           return objTilePos.tileX === tileX && objTilePos.tileZ === tileZ;

@@ -370,11 +370,13 @@ export class SceneManager {
   }
 
   clearWorld() {
-    // Clear world objects
+    // Clear world objects - use remove() method to properly clean up tile references
     this.worldObjects.forEach(obj => {
-      if (obj.remove) {
+      // Always call remove() if available to properly clean up tile references
+      if (obj.remove && typeof obj.remove === 'function') {
         obj.remove();
       } else if (obj.mesh && this.scene) {
+        // Fallback: manual cleanup if remove() doesn't exist
         this.scene.remove(obj.mesh);
         // Dispose of geometry and materials
         if (obj.mesh.geometry) obj.mesh.geometry.dispose();
@@ -385,9 +387,22 @@ export class SceneManager {
             obj.mesh.material.dispose();
           }
         }
+        // Clear tile references if tileGrid exists
+        if (obj.tileGrid && obj.tileX !== undefined && obj.tileZ !== undefined) {
+          try {
+            const tile = obj.tileGrid.getTile(obj.tileX, obj.tileZ);
+            if (tile) {
+              tile.occupied = false;
+              tile.content = null;
+            }
+          } catch (e) {
+            // TileGrid might have been disposed, ignore
+          }
+        }
       }
     });
-    this.worldObjects = [];
+    // Clear the array completely
+    this.worldObjects.length = 0;
 
     // Clear buildings
     if (this.buildingManager) {
@@ -422,6 +437,10 @@ export class SceneManager {
   }
 
   async regenerateWorld(seed = null) {
+    // IMPORTANT: Clear world objects BEFORE disposing old tile grid
+    // This ensures old objects don't try to access a disposed tile grid
+    this.clearWorld();
+    
     // Remove old terrain and tile grid
     if (this.terrain) {
       this.terrain.dispose();
@@ -447,8 +466,15 @@ export class SceneManager {
   }
 
   restoreFromSave(saveData) {
-    // Clear existing world first
-    this.clearWorld();
+    // Note: clearWorld() is already called in regenerateWorld() if it was called
+    // But we should ensure world objects are cleared before restoring
+    // Clear any remaining world objects (in case regenerateWorld wasn't called)
+    this.worldObjects.forEach(obj => {
+      if (obj.remove && typeof obj.remove === 'function') {
+        obj.remove();
+      }
+    });
+    this.worldObjects.length = 0;
 
     // Restore player
     if (saveData.player && this.player) {
