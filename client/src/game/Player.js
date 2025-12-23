@@ -39,6 +39,9 @@ export class Player {
     let skinColor = 0xD2B48C; // Light brown/tan (default)
     let hatColor = 0xFF69B4; // Bright pink (default)
     let overallColor = 0x4169E1; // Blue (default)
+    let gender = 'male';
+    let hatVisible = true;
+    let hairstyle = 'none';
 
     try {
       const savedSkinColor = localStorage.getItem('taskforge_characterSkinColor');
@@ -58,89 +61,129 @@ export class Player {
         const parsed = hexToNumber(savedOverallsColor);
         if (parsed !== null) overallColor = parsed;
       }
+
+      const savedGender = localStorage.getItem('taskforge_characterGender');
+      if (savedGender) {
+        gender = savedGender;
+      }
+
+      const savedHatVisible = localStorage.getItem('taskforge_characterHatVisible');
+      if (savedHatVisible !== null) {
+        hatVisible = savedHatVisible === 'true';
+      }
+
+      const savedHairstyle = localStorage.getItem('taskforge_characterHairstyle');
+      if (savedHairstyle) {
+        hairstyle = savedHairstyle;
+      }
     } catch (error) {
       console.warn('Failed to load character colors:', error);
     }
 
-    return { skinColor, hatColor, overallColor };
+    return { skinColor, hatColor, overallColor, gender, hatVisible, hairstyle };
   }
 
   create() {
     // Create a blocky character matching the design
     const characterGroup = new THREE.Group();
     
-    // Load character customization colors
-    const { skinColor, hatColor, overallColor } = this.loadCharacterColors();
+    // Load character customization data
+    const { skinColor, hatColor, overallColor, gender, hatVisible, hairstyle } = this.loadCharacterColors();
     const shirtColor = 0x808080; // Grey (not customizable)
     
-    // Head (light brown cube)
-    const headGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    // Store customization data
+    this.gender = gender;
+    this.hatVisible = hatVisible;
+    this.hairstyle = hairstyle;
+    
+    // Gender-based body proportions
+    const bodyScale = gender === 'female' ? 0.9 : 1.0;
+    const shoulderWidth = gender === 'female' ? 0.45 : 0.5;
+    const hipWidth = gender === 'female' ? 0.5 : 0.45;
+    
+    // Head (light brown cube) - gender-based scale
+    const headGeometry = new THREE.BoxGeometry(0.5 * bodyScale, 0.5 * bodyScale, 0.5 * bodyScale);
     const headMaterial = new THREE.MeshStandardMaterial({ 
       color: skinColor,
       roughness: 0.8,
       metalness: 0.1
     });
     const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.set(0, 1.0, 0);
+    head.position.set(0, 1.0 * bodyScale, 0);
     head.castShadow = true;
     characterGroup.add(head);
     
-    // Face details (using simple geometry)
+    // Face details (using simple geometry) - scaled for gender
+    const faceScale = bodyScale;
     // Eyes
-    const eyeGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.02);
+    const eyeGeometry = new THREE.BoxGeometry(0.08 * faceScale, 0.08 * faceScale, 0.02);
     const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
     const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    leftEye.position.set(-0.12, 1.05, 0.26);
+    leftEye.position.set(-0.12 * faceScale, 1.05 * bodyScale, 0.26 * faceScale);
     characterGroup.add(leftEye);
     const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    rightEye.position.set(0.12, 1.05, 0.26);
+    rightEye.position.set(0.12 * faceScale, 1.05 * bodyScale, 0.26 * faceScale);
     characterGroup.add(rightEye);
     
     // Mouth (simple U shape using a small box)
-    const mouthGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.02);
+    const mouthGeometry = new THREE.BoxGeometry(0.15 * faceScale, 0.08 * faceScale, 0.02);
     const mouthMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
     const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
-    mouth.position.set(0, 0.92, 0.26);
+    mouth.position.set(0, 0.92 * bodyScale, 0.26 * faceScale);
     characterGroup.add(mouth);
     
     // Blush (pink circles)
-    const blushGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.01);
+    const blushGeometry = new THREE.BoxGeometry(0.1 * faceScale, 0.1 * faceScale, 0.01);
     const blushMaterial = new THREE.MeshStandardMaterial({ color: 0xFFB6C1 });
     const leftBlush = new THREE.Mesh(blushGeometry, blushMaterial);
-    leftBlush.position.set(-0.18, 0.98, 0.25);
+    leftBlush.position.set(-0.18 * faceScale, 0.98 * bodyScale, 0.25 * faceScale);
     characterGroup.add(leftBlush);
     const rightBlush = new THREE.Mesh(blushGeometry, blushMaterial);
-    rightBlush.position.set(0.18, 0.98, 0.25);
+    rightBlush.position.set(0.18 * faceScale, 0.98 * bodyScale, 0.25 * faceScale);
     characterGroup.add(rightBlush);
     
-    // Hat (bright pink, mushroom-cap like)
-    const hatGeometry = new THREE.BoxGeometry(0.7, 0.3, 0.7);
+    // Hair (create before hat so it's below hat if hat is visible)
+    this.hairMesh = null;
+    if (hairstyle !== 'none') {
+      this.hairMesh = this.createHair(gender, hairstyle, hatColor, bodyScale);
+      if (this.hairMesh) {
+        characterGroup.add(this.hairMesh);
+      }
+    }
+    
+    // Hat (bright pink, mushroom-cap like) - only if hatVisible is true
+    let hat = null;
+    let hatBrim = null;
     const hatMaterial = new THREE.MeshStandardMaterial({ 
       color: hatColor,
       roughness: 0.7,
       metalness: 0.1
     });
-    const hat = new THREE.Mesh(hatGeometry, hatMaterial);
-    hat.position.set(0, 1.25, 0);
-    hat.castShadow = true;
-    characterGroup.add(hat);
     
-    // Hat brim (wider part)
-    const hatBrimGeometry = new THREE.BoxGeometry(0.85, 0.15, 0.85);
-    const hatBrim = new THREE.Mesh(hatBrimGeometry, hatMaterial);
-    hatBrim.position.set(0, 1.15, 0);
-    hatBrim.castShadow = true;
-    characterGroup.add(hatBrim);
+    if (hatVisible) {
+      const hatGeometry = new THREE.BoxGeometry(0.7, 0.3, 0.7);
+      hat = new THREE.Mesh(hatGeometry, hatMaterial);
+      hat.position.set(0, 1.25, 0);
+      hat.castShadow = true;
+      characterGroup.add(hat);
+      
+      // Hat brim (wider part)
+      const hatBrimGeometry = new THREE.BoxGeometry(0.85, 0.15, 0.85);
+      hatBrim = new THREE.Mesh(hatBrimGeometry, hatMaterial);
+      hatBrim.position.set(0, 1.15, 0);
+      hatBrim.castShadow = true;
+      characterGroup.add(hatBrim);
+    }
     
-    // Body/Torso (light brown)
-    const bodyGeometry = new THREE.BoxGeometry(0.5, 0.6, 0.4);
+    // Body/Torso (light brown) - gender-based proportions
+    const bodyGeometry = new THREE.BoxGeometry(shoulderWidth, 0.6 * bodyScale, 0.4);
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
       color: skinColor,
       roughness: 0.8,
       metalness: 0.1
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.set(0, 0.5, 0);
+    body.position.set(0, 0.5 * bodyScale, 0);
     body.castShadow = true;
     characterGroup.add(body);
     
@@ -154,15 +197,15 @@ export class Player {
     shirt.position.set(0, 0.65, 0);
     characterGroup.add(shirt);
     
-    // Overalls (blue)
-    const overallGeometry = new THREE.BoxGeometry(0.55, 0.7, 0.45);
+    // Overalls (blue) - gender-based proportions
+    const overallGeometry = new THREE.BoxGeometry(hipWidth, 0.7 * bodyScale, 0.45);
     const overallMaterial = new THREE.MeshStandardMaterial({ 
       color: overallColor,
       roughness: 0.9,
       metalness: 0.1
     });
     const overalls = new THREE.Mesh(overallGeometry, overallMaterial);
-    overalls.position.set(0, 0.45, 0);
+    overalls.position.set(0, 0.45 * bodyScale, 0);
     overalls.castShadow = true;
     characterGroup.add(overalls);
     
@@ -185,30 +228,32 @@ export class Player {
     rightButton.position.set(0.15, 0.75, 0.23);
     characterGroup.add(rightButton);
     
-    // Arms (light brown, positioned at sides)
-    const armGeometry = new THREE.BoxGeometry(0.15, 0.4, 0.15);
+    // Arms (light brown, positioned at sides) - gender-based positioning
+    const armGeometry = new THREE.BoxGeometry(0.15, 0.4 * bodyScale, 0.15);
     const armMaterial = new THREE.MeshStandardMaterial({ 
       color: skinColor,
       roughness: 0.8
     });
+    const armOffsetX = gender === 'female' ? 0.32 : 0.35;
     const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-    leftArm.position.set(-0.35, 0.5, 0);
+    leftArm.position.set(-armOffsetX, 0.5 * bodyScale, 0);
     leftArm.castShadow = true;
     characterGroup.add(leftArm);
     const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-    rightArm.position.set(0.35, 0.5, 0);
+    rightArm.position.set(armOffsetX, 0.5 * bodyScale, 0);
     rightArm.castShadow = true;
     characterGroup.add(rightArm);
     
-    // Legs (part of overalls, blocky) - connect to bottom of overalls
-    // Overalls bottom is at Y=0.45 - 0.35 = 0.1, so leg center should be at 0.1 - 0.2 = -0.1
-    const legGeometry = new THREE.BoxGeometry(0.2, 0.4, 0.2);
+    // Legs (part of overalls, blocky) - gender-based proportions
+    // Overalls bottom is at Y=0.45 * bodyScale - 0.35 * bodyScale = 0.1 * bodyScale
+    const legGeometry = new THREE.BoxGeometry(0.2, 0.4 * bodyScale, 0.2);
+    const legOffsetX = gender === 'female' ? 0.12 : 0.15;
     const leftLeg = new THREE.Mesh(legGeometry, overallMaterial);
-    leftLeg.position.set(-0.15, -0.1, 0); // Connected to overalls bottom
+    leftLeg.position.set(-legOffsetX, -0.1 * bodyScale, 0);
     leftLeg.castShadow = true;
     characterGroup.add(leftLeg);
     const rightLeg = new THREE.Mesh(legGeometry, overallMaterial);
-    rightLeg.position.set(0.15, -0.1, 0); // Connected to overalls bottom
+    rightLeg.position.set(legOffsetX, -0.1 * bodyScale, 0);
     rightLeg.castShadow = true;
     characterGroup.add(rightLeg);
     
@@ -221,11 +266,25 @@ export class Player {
     this.head = head; // Store head reference for bending animation
     this.overalls = overalls; // Store overalls reference for bending animation
     
+    // Store mesh references for dynamic updates
+    this.hat = hat;
+    this.hatBrim = hatBrim;
+    this.leftStrap = leftStrap;
+    this.rightStrap = rightStrap;
+    this.leftButton = leftButton;
+    this.rightButton = rightButton;
+    
     // Store material references for potential dynamic updates
-    this.hatMaterial = hatMaterial;
+    this.hatMaterial = hat ? hatMaterial : new THREE.MeshStandardMaterial({ 
+      color: hatColor,
+      roughness: 0.7,
+      metalness: 0.1
+    });
     this.overallMaterial = overallMaterial;
     this.skinMaterial = headMaterial; // Head and body use same skin material
     this.bodyMaterial = bodyMaterial;
+    this.armMaterial = armMaterial;
+    this.buttonMaterial = buttonMaterial;
     
     // Create hand item group (will hold the item the player is carrying)
     this.handItemGroup = new THREE.Group();
@@ -253,6 +312,207 @@ export class Player {
     }
 
     this.scene.add(this.mesh);
+  }
+
+  createHair(gender, hairstyle, hairColor, bodyScale = 1.0) {
+    if (!hairstyle || hairstyle === 'none') return null;
+    
+    const hairGroup = new THREE.Group();
+    const hairMaterial = new THREE.MeshStandardMaterial({ 
+      color: hairColor,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    
+    if (gender === 'male') {
+      switch (hairstyle) {
+        case 'short':
+          // Short hair - simple box on top of head
+          const shortHair = new THREE.Mesh(
+            new THREE.BoxGeometry(0.55 * bodyScale, 0.15 * bodyScale, 0.55 * bodyScale),
+            hairMaterial
+          );
+          shortHair.position.set(0, 1.15 * bodyScale, 0);
+          hairGroup.add(shortHair);
+          break;
+        case 'spiky':
+          // Spiky hair - multiple small boxes
+          for (let i = 0; i < 5; i++) {
+            const spike = new THREE.Mesh(
+              new THREE.BoxGeometry(0.08 * bodyScale, 0.2 * bodyScale, 0.08 * bodyScale),
+              hairMaterial
+            );
+            const angle = (i / 5) * Math.PI * 2;
+            spike.position.set(
+              Math.cos(angle) * 0.15 * bodyScale,
+              1.2 * bodyScale,
+              Math.sin(angle) * 0.15 * bodyScale
+            );
+            hairGroup.add(spike);
+          }
+          break;
+        case 'curly':
+          // Curly hair - wavy box
+          const curlyHair = new THREE.Mesh(
+            new THREE.BoxGeometry(0.6 * bodyScale, 0.2 * bodyScale, 0.6 * bodyScale),
+            hairMaterial
+          );
+          curlyHair.position.set(0, 1.15 * bodyScale, 0);
+          hairGroup.add(curlyHair);
+          break;
+      }
+    } else {
+      // Female hairstyles
+      switch (hairstyle) {
+        case 'long':
+          // Long hair - boxes on sides
+          const leftLong = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15 * bodyScale, 0.5 * bodyScale, 0.15 * bodyScale),
+            hairMaterial
+          );
+          leftLong.position.set(-0.2 * bodyScale, 0.9 * bodyScale, 0);
+          hairGroup.add(leftLong);
+          const rightLong = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15 * bodyScale, 0.5 * bodyScale, 0.15 * bodyScale),
+            hairMaterial
+          );
+          rightLong.position.set(0.2 * bodyScale, 0.9 * bodyScale, 0);
+          hairGroup.add(rightLong);
+          const topLong = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5 * bodyScale, 0.15 * bodyScale, 0.5 * bodyScale),
+            hairMaterial
+          );
+          topLong.position.set(0, 1.15 * bodyScale, 0);
+          hairGroup.add(topLong);
+          break;
+        case 'ponytail':
+          // Ponytail - hair on top and ponytail in back
+          const topPony = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5 * bodyScale, 0.15 * bodyScale, 0.5 * bodyScale),
+            hairMaterial
+          );
+          topPony.position.set(0, 1.15 * bodyScale, 0);
+          hairGroup.add(topPony);
+          const ponytail = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12 * bodyScale, 0.4 * bodyScale, 0.12 * bodyScale),
+            hairMaterial
+          );
+          ponytail.position.set(0, 0.85 * bodyScale, -0.2 * bodyScale);
+          hairGroup.add(ponytail);
+          break;
+        case 'bob':
+          // Bob cut - short rounded hair
+          const bobHair = new THREE.Mesh(
+            new THREE.BoxGeometry(0.55 * bodyScale, 0.25 * bodyScale, 0.55 * bodyScale),
+            hairMaterial
+          );
+          bobHair.position.set(0, 1.1 * bodyScale, 0);
+          hairGroup.add(bobHair);
+          break;
+      }
+    }
+    
+    hairGroup.castShadow = true;
+    return hairGroup;
+  }
+
+  updateColors() {
+    // Load current colors from localStorage
+    const { skinColor, hatColor, overallColor } = this.loadCharacterColors();
+    
+    // Update hat color (hat and hatBrim)
+    if (this.hatMaterial) {
+      this.hatMaterial.color.setHex(hatColor);
+    }
+    
+    // Update hair color if hair exists
+    if (this.hairMesh && this.hairMesh.children.length > 0) {
+      this.hairMesh.children.forEach(child => {
+        if (child.material) {
+          child.material.color.setHex(hatColor);
+        }
+      });
+    }
+    
+    // Update overalls color (overalls, straps, legs)
+    if (this.overallMaterial) {
+      this.overallMaterial.color.setHex(overallColor);
+    }
+    
+    // Update skin color (head, body, arms, buttons)
+    if (this.skinMaterial) {
+      this.skinMaterial.color.setHex(skinColor);
+    }
+    if (this.bodyMaterial) {
+      this.bodyMaterial.color.setHex(skinColor);
+    }
+    if (this.armMaterial) {
+      this.armMaterial.color.setHex(skinColor);
+    }
+    if (this.buttonMaterial) {
+      this.buttonMaterial.color.setHex(skinColor);
+    }
+  }
+
+  updateHatVisibility(visible) {
+    this.hatVisible = visible;
+    if (visible) {
+      // Create hat if it doesn't exist
+      if (!this.hat || !this.hatBrim) {
+        const { hatColor } = this.loadCharacterColors();
+        const hatGeometry = new THREE.BoxGeometry(0.7, 0.3, 0.7);
+        this.hat = new THREE.Mesh(hatGeometry, this.hatMaterial);
+        this.hat.position.set(0, 1.25, 0);
+        this.hat.castShadow = true;
+        this.mesh.add(this.hat);
+        
+        const hatBrimGeometry = new THREE.BoxGeometry(0.85, 0.15, 0.85);
+        this.hatBrim = new THREE.Mesh(hatBrimGeometry, this.hatMaterial);
+        this.hatBrim.position.set(0, 1.15, 0);
+        this.hatBrim.castShadow = true;
+        this.mesh.add(this.hatBrim);
+      } else {
+        this.hat.visible = true;
+        this.hatBrim.visible = true;
+      }
+    } else {
+      // Hide hat if it exists
+      if (this.hat) {
+        this.hat.visible = false;
+      }
+      if (this.hatBrim) {
+        this.hatBrim.visible = false;
+      }
+    }
+  }
+
+  updateHair(gender, hairstyle) {
+    // Remove existing hair
+    if (this.hairMesh && this.mesh) {
+      this.mesh.remove(this.hairMesh);
+      this.hairMesh = null;
+    }
+    
+    // Create new hair if needed
+    if (hairstyle && hairstyle !== 'none') {
+      const { hatColor, gender: currentGender } = this.loadCharacterColors();
+      const bodyScale = currentGender === 'female' ? 0.9 : 1.0;
+      this.hairMesh = this.createHair(gender, hairstyle, hatColor, bodyScale);
+      if (this.hairMesh && this.mesh) {
+        this.mesh.add(this.hairMesh);
+      }
+    }
+    
+    this.hairstyle = hairstyle;
+    this.gender = gender;
+  }
+
+  updateGender(gender) {
+    // Gender change requires full recreation, but for now just update stored value
+    // Full recreation would be complex, so we'll just update the stored value
+    this.gender = gender;
+    // Note: Full body recreation would require recreating the entire model
+    // For now, this is a placeholder that could be enhanced later
   }
 
   // Move to tile coordinates (strict tile-based movement)
