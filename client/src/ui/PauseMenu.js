@@ -6,6 +6,7 @@ export class PauseMenu {
     this.onResumeCallback = null;
     this.onQuitToMenuCallback = null;
     this.onSettingsCallback = null;
+    this.onAchievementsCallback = null;
     this.onSaveWorldCallback = null;
     this.onLoadWorldCallback = null;
     this.create();
@@ -31,6 +32,9 @@ export class PauseMenu {
           </button>
           <button class="pause-button" id="settings-button">
             <span class="button-text">Settings</span>
+          </button>
+          <button class="pause-button" id="achievements-button">
+            <span class="button-text">Achievements</span>
           </button>
           <button class="pause-button" id="quit-to-menu-button">
             <span class="button-text">Quit to Menu</span>
@@ -181,6 +185,7 @@ export class PauseMenu {
     const saveWorldButton = this.element.querySelector('#save-world-button');
     const loadWorldButton = this.element.querySelector('#load-world-button');
     const settingsButton = this.element.querySelector('#settings-button');
+    const achievementsButton = this.element.querySelector('#achievements-button');
     const quitToMenuButton = this.element.querySelector('#quit-to-menu-button');
 
     resumeButton.addEventListener('click', () => {
@@ -207,6 +212,13 @@ export class PauseMenu {
       this.hide(); // Hide pause menu when opening settings
       if (this.onSettingsCallback) {
         this.onSettingsCallback();
+      }
+    });
+
+    achievementsButton.addEventListener('click', () => {
+      this.hide(); // Hide pause menu when opening achievements
+      if (this.onAchievementsCallback) {
+        this.onAchievementsCallback();
       }
     });
 
@@ -253,6 +265,10 @@ export class PauseMenu {
 
   onSettings(callback) {
     this.onSettingsCallback = callback;
+  }
+
+  onAchievements(callback) {
+    this.onAchievementsCallback = callback;
   }
 
   onSaveWorld(callback) {

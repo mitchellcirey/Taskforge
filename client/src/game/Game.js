@@ -5,6 +5,7 @@ import { PauseMenu } from '../ui/PauseMenu.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
 import { CreditsMenu } from '../ui/CreditsMenu.js';
 import { CharacterMenu } from '../ui/CharacterMenu.js';
+import { AchievementsMenu } from '../ui/AchievementsMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
 import { SaveLoadDialog } from '../ui/SaveLoadDialog.js';
@@ -28,6 +29,7 @@ export class Game {
     this.settingsMenu = null;
     this.creditsMenu = null;
     this.characterMenu = null;
+    this.achievementsMenu = null;
     this.adminMenu = null;
     // Store game instance globally for access from other modules
     window.gameInstance = this;
@@ -118,9 +120,11 @@ export class Game {
       this.resumeLastSave();
     });
     this.mainMenu.onAchievements(() => {
-      // Placeholder for achievements
-      console.log('Achievements clicked');
-      // TODO: Implement achievements system
+      // Show achievements menu and hide main menu
+      this.mainMenu.hide();
+      if (this.achievementsMenu) {
+        this.achievementsMenu.show();
+      }
     });
     this.mainMenu.onSettings(() => {
       // Open settings menu
@@ -162,6 +166,20 @@ export class Game {
       }
     });
 
+    // Create achievements menu
+    this.achievementsMenu = new AchievementsMenu(this.container);
+    this.achievementsMenu.onClose(() => {
+      // Return to appropriate menu when achievements menu is closed
+      if (this.gameState.getState() === GameState.MENU) {
+        this.mainMenu.show();
+      } else if (this.gameState.getState() === GameState.PAUSED) {
+        // Return to pause menu if we were in paused state
+        if (this.pauseMenu) {
+          this.pauseMenu.show();
+        }
+      }
+    });
+
     // Create settings menu (used both in main menu and in-game)
     this.settingsMenu = new SettingsMenu(this.container, null, this.audioManager);
     // Apply audio settings after sounds are loaded
@@ -186,6 +204,12 @@ export class Game {
     this.pauseMenu.onSettings(() => {
       if (this.settingsMenu) {
         this.settingsMenu.show();
+      }
+    });
+    this.pauseMenu.onAchievements(() => {
+      // Show achievements menu
+      if (this.achievementsMenu) {
+        this.achievementsMenu.show();
       }
     });
     this.pauseMenu.onSaveWorld(() => {
