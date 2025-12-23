@@ -86,11 +86,13 @@ export class InteractionManager {
       this.buildingManager.updatePreview(worldPos.x, worldPos.z);
     }
 
-    // Check for hover on objects (including resources)
+    // Check for hover on objects and buildings
     this.raycaster.setFromCamera(this.mouse, this.camera);
     
-    // Collect all meshes including groups
+    // Collect all meshes including groups (objects and buildings)
     const allMeshes = [];
+    
+    // Add world object meshes
     this.worldObjects.forEach(obj => {
       if (obj.mesh) {
         if (obj.mesh instanceof THREE.Group) {
@@ -100,12 +102,27 @@ export class InteractionManager {
         }
       }
     });
+    
+    // Add building meshes
+    if (this.buildingManager && this.buildingManager.buildings) {
+      this.buildingManager.buildings.forEach(building => {
+        if (building.mesh) {
+          if (building.mesh instanceof THREE.Group) {
+            building.mesh.children.forEach(child => allMeshes.push(child));
+          } else {
+            allMeshes.push(building.mesh);
+          }
+        }
+      });
+    }
 
     const intersects = this.raycaster.intersectObjects(allMeshes);
 
     if (intersects.length > 0) {
-      // Find which object was hovered
+      // Find which object or building was hovered
       let hoveredObject = null;
+      
+      // Check world objects first
       for (const obj of this.worldObjects) {
         if (obj.mesh instanceof THREE.Group) {
           if (obj.mesh.children.includes(intersects[0].object)) {
@@ -117,24 +134,54 @@ export class InteractionManager {
           break;
         }
       }
+      
+      // If not found in world objects, check buildings
+      if (!hoveredObject && this.buildingManager && this.buildingManager.buildings) {
+        for (const building of this.buildingManager.buildings) {
+          if (building.mesh instanceof THREE.Group) {
+            if (building.mesh.children.includes(intersects[0].object) || 
+                this.isMeshInGroup(intersects[0].object, building.mesh)) {
+              hoveredObject = building;
+              break;
+            }
+          } else if (building.mesh === intersects[0].object) {
+            hoveredObject = building;
+            break;
+          }
+        }
+      }
 
-      if (hoveredObject && hoveredObject !== this.hoveredObject) {
-        // Remove highlight from previous object
-        if (this.hoveredObject && this.hoveredObject.mesh) {
-          this.hoveredObject.mesh.scale.set(1, 1, 1);
+      if (hoveredObject) {
+        if (hoveredObject !== this.hoveredObject) {
+          // Remove highlight from previous object
+          if (this.hoveredObject && this.hoveredObject.hideHoverHighlight) {
+            this.hoveredObject.hideHoverHighlight();
+          }
+          
+          this.hoveredObject = hoveredObject;
         }
         
-        this.hoveredObject = hoveredObject;
-        
-        // Add visual feedback for resources
-        if (hoveredObject.mesh) {
-          hoveredObject.mesh.scale.set(1.1, 1.1, 1.1);
+        // Check if object is reachable and show appropriate highlight
+        // (Check every frame in case player moved while hovering same object)
+        if (this.player && this.sceneManager && this.sceneManager.tileGrid) {
+          const playerPos = this.player.getPosition();
+          if (playerPos) {
+            const { tileX, tileZ } = hoveredObject.getTilePosition();
+            const bestTile = this.findBestAdjacentTile(tileX, tileZ, playerPos);
+            
+            // Show green if reachable, red if obstructed
+            if (bestTile) {
+              hoveredObject.showHoverHighlight(0x00FF00); // Green
+            } else {
+              hoveredObject.showHoverHighlight(0xFF0000); // Red
+            }
+          }
         }
       }
     } else {
       // Remove highlight from previous object
-      if (this.hoveredObject && this.hoveredObject.mesh) {
-        this.hoveredObject.mesh.scale.set(1, 1, 1);
+      if (this.hoveredObject && this.hoveredObject.hideHoverHighlight) {
+        this.hoveredObject.hideHoverHighlight();
       }
       this.hoveredObject = null;
     }
@@ -146,6 +193,55 @@ export class InteractionManager {
     const intersectionPoint = new THREE.Vector3();
     this.raycaster.ray.intersectPlane(plane, intersectionPoint);
     return intersectionPoint;
+  }
+
+  // Find the best adjacent tile (cardinal directions only) sorted by distance to player
+  findBestAdjacentTile(objectTileX, objectTileZ, playerPosition) {
+    if (!this.sceneManager || !this.sceneManager.tileGrid || !playerPosition) {
+      return null;
+    }
+
+    // Get player's current tile
+    const playerTile = this.sceneManager.tileGrid.getTileAtWorldPosition(playerPosition.x, playerPosition.z);
+    if (!playerTile) {
+      return null;
+    }
+
+    // Cardinal directions only (N, E, S, W) - no diagonals
+    const directions = [
+      { x: 0, z: -1, name: 'North' },   // North
+      { x: 1, z: 0, name: 'East' },     // East
+      { x: 0, z: 1, name: 'South' },    // South
+      { x: -1, z: 0, name: 'West' }     // West
+    ];
+
+    // Collect all valid adjacent tiles with their distances
+    const candidateTiles = [];
+    for (const dir of directions) {
+      const adjTileX = objectTileX + dir.x;
+      const adjTileZ = objectTileZ + dir.z;
+      const adjTile = this.sceneManager.tileGrid.getTile(adjTileX, adjTileZ);
+      
+      if (adjTile && adjTile.walkable && !adjTile.occupied) {
+        // Calculate distance to player
+        const dx = adjTile.tileX - playerTile.tileX;
+        const dz = adjTile.tileZ - playerTile.tileZ;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        candidateTiles.push({
+          tile: adjTile,
+          distance: distance,
+          tileX: adjTileX,
+          tileZ: adjTileZ
+        });
+      }
+    }
+
+    // Sort by distance (closest first)
+    candidateTiles.sort((a, b) => a.distance - b.distance);
+
+    // Return the closest available tile, or null if none found
+    return candidateTiles.length > 0 ? candidateTiles[0] : null;
   }
 
   async onClick(event) {
@@ -253,42 +349,25 @@ export class InteractionManager {
                       }
                       
                       const { tileX, tileZ } = tilePos;
-                      const targetTile = this.sceneManager?.tileGrid?.getTile(tileX, tileZ);
+                      const playerPos = this.player.getPosition();
                       
-                      // If target tile is occupied, find adjacent walkable tile
-                      if (targetTile && (targetTile.occupied || !targetTile.walkable)) {
-                        // Try to find an adjacent walkable tile
-                        const directions = [
-                          { x: 0, z: -1 },   // North
-                          { x: 1, z: 0 },    // East
-                          { x: 0, z: 1 },    // South
-                          { x: -1, z: 0 },   // West
-                          { x: 1, z: -1 },   // Northeast
-                          { x: 1, z: 1 },    // Southeast
-                          { x: -1, z: 1 },   // Southwest
-                          { x: -1, z: -1 }   // Northwest
-                        ];
-                        
-                        let foundAdjacent = false;
-                        for (const dir of directions) {
-                          const adjTile = this.sceneManager?.tileGrid?.getTile(tileX + dir.x, tileZ + dir.z);
-                          if (adjTile && adjTile.walkable && !adjTile.occupied) {
-                            if (this.player.moveTo && typeof this.player.moveTo === 'function') {
-                              this.player.moveTo(tileX + dir.x, tileZ + dir.z);
-                            }
-                            foundAdjacent = true;
-                            break;
-                          }
-                        }
-                        
-                        // If no adjacent tile found, just return (can't reach)
-                        if (!foundAdjacent) {
-                          return;
+                      // Clear any previous obstructed highlights
+                      if (clickedBuilding.clearObstructedHighlight) {
+                        clickedBuilding.clearObstructedHighlight();
+                      }
+                      
+                      // Find best adjacent tile (cardinal directions only, sorted by distance)
+                      const bestTile = this.findBestAdjacentTile(tileX, tileZ, playerPos);
+                      
+                      if (bestTile) {
+                        // Move to the best adjacent tile
+                        if (this.player.moveTo && typeof this.player.moveTo === 'function') {
+                          this.player.moveTo(bestTile.tileX, bestTile.tileZ);
                         }
                       } else {
-                        // Target tile is walkable, move there
-                        if (this.player.moveTo && typeof this.player.moveTo === 'function') {
-                          this.player.moveTo(tileX, tileZ);
+                        // No available tiles - highlight building in red
+                        if (clickedBuilding.highlightObstructed) {
+                          clickedBuilding.highlightObstructed();
                         }
                       }
                     } catch (err) {
@@ -394,37 +473,23 @@ export class InteractionManager {
             const { tileX, tileZ } = clickedObject.getTilePosition();
             const targetTile = this.sceneManager?.tileGrid?.getTile(tileX, tileZ);
             
-            // If target tile is occupied (e.g., tree), find adjacent walkable tile
-            if (targetTile && (targetTile.occupied || !targetTile.walkable)) {
-              // Try to find an adjacent walkable tile
-              const directions = [
-                { x: 0, z: -1 },   // North
-                { x: 1, z: 0 },    // East
-                { x: 0, z: 1 },    // South
-                { x: -1, z: 0 },   // West
-                { x: 1, z: -1 },   // Northeast
-                { x: 1, z: 1 },    // Southeast
-                { x: -1, z: 1 },   // Southwest
-                { x: -1, z: -1 }   // Northwest
-              ];
-              
-              let foundAdjacent = false;
-              for (const dir of directions) {
-                const adjTile = this.sceneManager?.tileGrid?.getTile(tileX + dir.x, tileZ + dir.z);
-                if (adjTile && adjTile.walkable && !adjTile.occupied) {
-                  this.player.moveTo(tileX + dir.x, tileZ + dir.z);
-                  foundAdjacent = true;
-                  break;
-                }
-              }
-              
-              // If no adjacent tile found, just return (can't reach)
-              if (!foundAdjacent) {
-                return;
-              }
+            // Clear any previous obstructed highlights
+            if (clickedObject.clearObstructedHighlight) {
+              clickedObject.clearObstructedHighlight();
+            }
+            
+            // Always use findBestAdjacentTile to get the closest cardinal direction tile
+            // This ensures we don't move to the object's tile if it's occupied, and we pick the closest available tile
+            const bestTile = this.findBestAdjacentTile(tileX, tileZ, playerPos);
+            
+            if (bestTile) {
+              // Move to the best adjacent tile
+              this.player.moveTo(bestTile.tileX, bestTile.tileZ);
             } else {
-              // Target tile is walkable, move there
-              this.player.moveTo(tileX, tileZ);
+              // No available tiles - highlight object in red
+              if (clickedObject.highlightObstructed) {
+                clickedObject.highlightObstructed();
+              }
             }
           }
         } catch (error) {
