@@ -80,6 +80,22 @@ export class MainMenu {
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
+        animation: kenBurns 25s ease-in-out infinite;
+      }
+
+      @keyframes kenBurns {
+        0% {
+          background-size: 100%;
+          background-position: center center;
+        }
+        50% {
+          background-size: 110%;
+          background-position: 60% 40%;
+        }
+        100% {
+          background-size: 100%;
+          background-position: center center;
+        }
       }
 
       .menu-background::before {
