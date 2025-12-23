@@ -9,10 +9,9 @@ import { Inventory } from './Inventory.js';
 import { HarvestResult } from './HarvestResult.js';
 import { HotbarUI } from '../ui/HotbarUI.js';
 import { BuildingManager } from './BuildingManager.js';
-import { BuildingPlacementUI } from '../ui/BuildingPlacementUI.js';
+import { BuildingMenu } from '../ui/BuildingMenu.js';
 import { BuildingUI } from '../ui/BuildingUI.js';
 import { CraftingSystem } from './CraftingSystem.js';
-import { BlueprintUI } from '../ui/BlueprintUI.js';
 import { VillagerManager } from './VillagerManager.js';
 import { Terrain } from './Terrain.js';
 import { TileHighlighter } from './TileHighlighter.js';
@@ -36,10 +35,9 @@ export class SceneManager {
     this.inventory = null;
     this.hotbarUI = null;
     this.buildingManager = null;
-    this.buildingPlacementUI = null;
+    this.buildingMenu = null;
     this.currentBuildingUI = null;
     this.craftingSystem = null;
-    this.blueprintUI = null;
     this.villagerManager = null;
     this.tileHighlighter = null;
     this.destinationIndicator = null;
@@ -154,16 +152,21 @@ export class SceneManager {
     await reportProgress('Initializing systems...', 70, 450);
     // Create building manager
     this.buildingManager = new BuildingManager(this.scene, this.tileGrid, this.player);
-    
-    // Create building placement UI
-    this.buildingPlacementUI = new BuildingPlacementUI(this.container, this.buildingManager, this.player);
 
     // Create crafting system
     this.craftingSystem = new CraftingSystem();
-    this.blueprintUI = new BlueprintUI(this.container, this.craftingSystem, this.player);
 
     // Create villager manager
     this.villagerManager = new VillagerManager(this.scene, this.tileGrid);
+
+    // Create unified building menu (replaces BuildingPlacementUI and BlueprintUI)
+    this.buildingMenu = new BuildingMenu(
+      this.container,
+      this.buildingManager,
+      this.player,
+      this.craftingSystem,
+      this.villagerManager
+    );
 
     // Initialize interaction manager (pass tileHighlighter reference)
     this.interactionManager = new InteractionManager(
@@ -186,7 +189,7 @@ export class SceneManager {
       minZ: -200,
       maxZ: 200
     };
-    this.cameraController = new CameraController(this.camera, this.renderer.domElement, mapBounds);
+    this.cameraController = new CameraController(this.camera, this.renderer.domElement, mapBounds, this.player);
     
     // Create compass UI
     this.compassUI = new CompassUI(this.container, this.camera);

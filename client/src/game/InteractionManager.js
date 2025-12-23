@@ -36,34 +36,19 @@ export class InteractionManager {
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'b' || e.key === 'B') {
-        // Toggle building placement UI
-        if (this.sceneManager && this.sceneManager.buildingPlacementUI) {
-          if (this.sceneManager.buildingPlacementUI.element.style.display === 'none' || 
-              !this.sceneManager.buildingPlacementUI.element.parentNode) {
-            this.sceneManager.buildingPlacementUI.show();
+        // Toggle building menu
+        if (this.sceneManager && this.sceneManager.buildingMenu) {
+          if (this.sceneManager.buildingMenu.element.classList.contains('visible')) {
+            this.sceneManager.buildingMenu.hide();
           } else {
-            this.sceneManager.buildingPlacementUI.hide();
-            if (this.buildingManager) {
-              this.buildingManager.exitPlacementMode();
-            }
-          }
-        }
-      }
-      if (e.key === 'c' || e.key === 'C') {
-        // Toggle blueprint/crafting UI
-        if (this.sceneManager && this.sceneManager.blueprintUI) {
-          if (this.sceneManager.blueprintUI.element.style.display === 'none' || 
-              !this.sceneManager.blueprintUI.element.parentNode) {
-            this.sceneManager.blueprintUI.show();
-          } else {
-            this.sceneManager.blueprintUI.hide();
+            this.sceneManager.buildingMenu.show();
           }
         }
       }
       if (e.key === 'Escape' && this.buildingManager && this.buildingManager.placementMode) {
         this.buildingManager.exitPlacementMode();
-        if (this.sceneManager && this.sceneManager.buildingPlacementUI) {
-          this.sceneManager.buildingPlacementUI.hide();
+        if (this.sceneManager && this.sceneManager.buildingMenu) {
+          this.sceneManager.buildingMenu.hide();
         }
       }
     });
@@ -359,7 +344,9 @@ export class InteractionManager {
       if (building) {
         this.worldObjects.push(building);
         this.buildingManager.exitPlacementMode();
-        this.sceneManager.buildingPlacementUI.update();
+        if (this.sceneManager.buildingMenu) {
+          this.sceneManager.buildingMenu.update();
+        }
       }
       return;
     }

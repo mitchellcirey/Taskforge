@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 
 export class CameraController {
-  constructor(camera, domElement, mapBounds = null) {
+  constructor(camera, domElement, mapBounds = null, player = null) {
     this.camera = camera;
     this.domElement = domElement;
     
     // Map bounds (if provided) - { minX, maxX, minZ, maxZ }
     this.mapBounds = mapBounds;
+    
+    // Player reference for centering camera
+    this.player = player;
     
     // Focus point on ground plane (y=0)
     this.focusPoint = new THREE.Vector3(0, 0, 0);
@@ -208,6 +211,12 @@ export class CameraController {
       this.keys[key] = true;
       event.preventDefault();
     }
+    
+    // Handle 'C' key to center camera on player
+    if (key === 'c' && this.player && this.player.mesh) {
+      this.centerOnPlayer();
+      event.preventDefault();
+    }
   }
 
   onKeyUp(event) {
@@ -274,6 +283,24 @@ export class CameraController {
     if (this.mapBounds) {
       this.focusPoint.x = Math.max(this.mapBounds.minX, Math.min(this.mapBounds.maxX, this.focusPoint.x));
       this.focusPoint.z = Math.max(this.mapBounds.minZ, Math.min(this.mapBounds.maxZ, this.focusPoint.z));
+    }
+  }
+
+  /**
+   * Center camera on player
+   */
+  centerOnPlayer() {
+    if (this.player && this.player.mesh) {
+      // Set focus point to player's position on the ground plane
+      this.focusPoint.x = this.player.mesh.position.x;
+      this.focusPoint.z = this.player.mesh.position.z;
+      this.focusPoint.y = 0; // Ensure focus is on ground plane
+      
+      // Clamp to bounds if provided
+      this.clampFocusToBounds();
+      
+      // Update camera position
+      this.updateCameraPosition();
     }
   }
 
