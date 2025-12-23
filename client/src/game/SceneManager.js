@@ -45,12 +45,25 @@ export class SceneManager {
     this.compassUI = null;
   }
 
-  async init() {
-    // Create scene
+  async init(progressCallback = null) {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    const reportProgress = async (message, percentage, waitMs = 400) => {
+      if (progressCallback) {
+        progressCallback(message, percentage);
+      }
+      // Allow UI to update before continuing
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(waitMs);
+    };
+
+    // Step 1: Creating scene and camera (5%)
+    await reportProgress('Initializing scene...', 5, 300);
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87CEEB); // Sky blue
 
     // Create camera (perspective for 3D view)
+    await reportProgress('Setting up camera...', 10, 300);
     const aspect = window.innerWidth / window.innerHeight;
     const fov = 60; // Field of view in degrees
     
@@ -64,14 +77,16 @@ export class SceneManager {
     // Camera position will be set by CameraController
     // (which uses Autonauts-style fixed pitch, yaw rotation system)
 
-    // Create renderer
+    // Step 2: Creating renderer (15%)
+    await reportProgress('Creating renderer...', 15, 350);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
-    // Add lighting
+    // Step 3: Setting up lighting (15%)
+    await reportProgress('Setting up lighting...', 20, 300);
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
@@ -88,17 +103,21 @@ export class SceneManager {
     directionalLight.shadow.camera.bottom = -50;
     this.scene.add(directionalLight);
 
-    // Create larger tile grid (100x100 default)
+    // Step 4: Creating tile grid (20%)
+    await reportProgress('Creating tile grid...', 30, 400);
     this.tileGrid = new TileGrid(this.scene, 100, 100);
     this.tileGrid.create();
 
-    // Create detailed terrain with biomes
+    // Step 5: Creating terrain (30%)
+    await reportProgress('Generating terrain...', 40, 500);
     this.terrain = new Terrain(this.scene, this.tileGrid, 100, 100);
     this.terrain.create();
 
     // Create tile highlighter
     this.tileHighlighter = new TileHighlighter(this.scene, this.tileGrid);
 
+    // Step 6: Creating player (40%)
+    await reportProgress('Creating player...', 50, 400);
     // Create player inventory (max 4 items in slots 3-6)
     this.inventory = new Inventory(4);
     
@@ -116,9 +135,13 @@ export class SceneManager {
     this.destinationIndicator = new DestinationIndicator(this.scene, this.tileGrid);
     this.player.destinationIndicator = this.destinationIndicator;
 
+    // Step 7: Creating UI elements (50%)
+    await reportProgress('Setting up UI...', 60, 400);
     // Create hotbar UI
     this.hotbarUI = new HotbarUI(this.container, this.inventory);
 
+    // Step 8: Creating managers (60%)
+    await reportProgress('Initializing systems...', 70, 450);
     // Create building manager
     this.buildingManager = new BuildingManager(this.scene, this.tileGrid, this.player);
     
@@ -132,12 +155,6 @@ export class SceneManager {
     // Create villager manager
     this.villagerManager = new VillagerManager(this.scene, this.tileGrid);
 
-    // Spawn trees (more for larger map, mostly on forest side)
-    this.spawnTrees(30);
-    
-    // Spawn sticks around the map
-    this.spawnSticks(20);
-
     // Initialize interaction manager (pass tileHighlighter reference)
     this.interactionManager = new InteractionManager(
       this.camera,
@@ -149,20 +166,6 @@ export class SceneManager {
       this,
       this.tileHighlighter
     );
-
-    // Hook harvestable objects to process harvest results
-    this.worldObjects.forEach(obj => {
-      if (obj.harvest && typeof obj.harvest === 'function') {
-        const originalHarvest = obj.harvest.bind(obj);
-        obj.harvest = () => {
-          const results = originalHarvest();
-          if (results && Array.isArray(results)) {
-            this.processHarvestResults(obj, results);
-          }
-          return results;
-        };
-      }
-    });
 
     // Initialize camera controller with map bounds
     // Map bounds: 100x100 tiles, each tile is 2 units, centered at origin
@@ -178,15 +181,42 @@ export class SceneManager {
     // Create compass UI
     this.compassUI = new CompassUI(this.container, this.camera);
 
+    // Step 9: Spawning world objects (80%)
+    await reportProgress('Spawning world objects...', 80, 500);
+    // Spawn trees (more for larger map, mostly on forest side)
+    this.spawnTrees(30);
+    
+    // Spawn sticks around the map
+    this.spawnSticks(20);
+
+    // Hook harvestable objects to process harvest results
+    this.worldObjects.forEach(obj => {
+      if (obj.harvest && typeof obj.harvest === 'function') {
+        const originalHarvest = obj.harvest.bind(obj);
+        obj.harvest = () => {
+          const results = originalHarvest();
+          if (results && Array.isArray(results)) {
+            this.processHarvestResults(obj, results);
+          }
+          return results;
+        };
+      }
+    });
+
     // Handle window resize
     window.addEventListener('resize', () => this.onWindowResize());
     
+    // Step 10: Finalizing setup (100%)
+    await reportProgress('Finalizing...', 90, 300);
     // Initial render to ensure scene is visible
     if (this.renderer && this.scene && this.camera) {
       // Update matrices before first render
       this.scene.updateMatrixWorld(true);
       this.renderer.render(this.scene, this.camera);
     }
+    
+    // Final progress update
+    await reportProgress('Complete!', 100, 200);
   }
 
   spawnTrees(count) {

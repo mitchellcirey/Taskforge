@@ -253,21 +253,51 @@ export class Game {
     this.gameState.setState(GameState.LOADING);
     this.mainMenu.hide();
 
+    // Show loading screen
+    if (!this.loadingScreen) {
+      this.loadingScreen = new LoadingScreen(this.container);
+    }
+    this.loadingScreen.show();
+    this.loadingScreen.setProgress(0);
+    this.loadingScreen.setLoadingMessage('Starting game...');
+    
+    // Give the browser a moment to render the loading screen
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
     // Initialize scene manager
     if (!this.sceneManager) {
       // First time initialization
       this.sceneManager = new SceneManager(this.container, this.audioManager);
-      await this.sceneManager.init();
+      
+      // Create progress callback
+      const progressCallback = (message, percentage) => {
+        if (this.loadingScreen) {
+          this.loadingScreen.setLoadingMessage(message);
+          this.loadingScreen.setProgress(percentage);
+        }
+      };
+      
+      await this.sceneManager.init(progressCallback);
       
       // Update settings menu with tileGrid after scene manager is initialized
       if (this.sceneManager.tileGrid && this.settingsMenu) {
         this.settingsMenu.setTileGrid(this.sceneManager.tileGrid);
       }
     } else {
+      const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      
       // Reset existing world for new game
+      this.loadingScreen.setProgress(10);
+      this.loadingScreen.setLoadingMessage('Clearing world...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(400);
       this.sceneManager.clearWorld();
       
       // Reset player to starting position
+      this.loadingScreen.setProgress(30);
+      this.loadingScreen.setLoadingMessage('Resetting player...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(400);
       const startTile = this.sceneManager.tileGrid.getTile(
         Math.floor(this.sceneManager.tileGrid.width / 2),
         Math.floor(this.sceneManager.tileGrid.height / 2)
@@ -289,6 +319,10 @@ export class Game {
       }
       
       // Regenerate world objects
+      this.loadingScreen.setProgress(60);
+      this.loadingScreen.setLoadingMessage('Spawning world objects...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(500);
       this.sceneManager.spawnTrees(30);
       this.sceneManager.spawnSticks(20);
       
@@ -309,6 +343,10 @@ export class Game {
       });
       
       // Reset camera to default position
+      this.loadingScreen.setProgress(80);
+      this.loadingScreen.setLoadingMessage('Resetting camera...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(300);
       if (this.sceneManager.cameraController) {
         const startTile = this.sceneManager.tileGrid.getTile(
           Math.floor(this.sceneManager.tileGrid.width / 2),
@@ -322,6 +360,16 @@ export class Game {
           this.sceneManager.cameraController.updateCameraPosition();
         }
       }
+      
+      this.loadingScreen.setProgress(100);
+      this.loadingScreen.setLoadingMessage('Finalizing...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(300);
+    }
+
+    // Hide loading screen
+    if (this.loadingScreen) {
+      this.loadingScreen.hide();
     }
 
     this.gameState.setState(GameState.PLAYING);
@@ -447,19 +495,39 @@ export class Game {
 
       this.gameState.setState(GameState.LOADING);
       
+      // Show loading screen
+      if (!this.loadingScreen) {
+        this.loadingScreen = new LoadingScreen(this.container);
+      }
+      this.loadingScreen.show();
+      this.loadingScreen.setProgress(0);
+      this.loadingScreen.setLoadingMessage('Loading save file...');
+      
+      // Give the browser a moment to render the loading screen
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      
       const result = await window.electronAPI.loadWorld(filePath);
       
       if (!result.success) {
         console.error('Failed to load world:', result.error);
         alert(`Failed to load world: ${result.error}`);
         this.gameState.setState(GameState.MENU);
+        if (this.loadingScreen) {
+          this.loadingScreen.hide();
+        }
         if (this.mainMenu) {
           this.mainMenu.show();
         }
         return;
       }
 
+      const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      
       // Migrate save data to current version
+      this.loadingScreen.setProgress(20);
+      this.loadingScreen.setLoadingMessage('Processing save data...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(400);
       const migratedData = this.saveManager.migrateSaveData(result.data);
       
       // Validate save data
@@ -469,8 +537,24 @@ export class Game {
       if (!this.sceneManager) {
         this.mainMenu.hide();
         
+        this.loadingScreen.setProgress(40);
+        this.loadingScreen.setLoadingMessage('Initializing world...');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await delay(300);
+        
         this.sceneManager = new SceneManager(this.container, this.audioManager);
-        await this.sceneManager.init();
+        
+        // Create progress callback that combines world init with restore progress
+        const progressCallback = (message, percentage) => {
+          // Map SceneManager progress (0-100) to our range (40-60)
+          const mappedPercentage = 40 + (percentage * 0.2);
+          if (this.loadingScreen) {
+            this.loadingScreen.setLoadingMessage(message);
+            this.loadingScreen.setProgress(mappedPercentage);
+          }
+        };
+        
+        await this.sceneManager.init(progressCallback);
         
         // Update settings menu with tileGrid after scene manager is initialized
         if (this.sceneManager.tileGrid && this.settingsMenu) {
@@ -478,11 +562,34 @@ export class Game {
         }
       } else {
         // Clear existing world
+        this.loadingScreen.setProgress(40);
+        this.loadingScreen.setLoadingMessage('Clearing world...');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await delay(400);
         this.sceneManager.clearWorld();
       }
 
       // Restore world from migrated save data
+      this.loadingScreen.setProgress(60);
+      this.loadingScreen.setLoadingMessage('Restoring buildings...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(500);
       this.sceneManager.restoreFromSave(migratedData);
+      
+      this.loadingScreen.setProgress(80);
+      this.loadingScreen.setLoadingMessage('Restoring world objects...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(400);
+      
+      this.loadingScreen.setProgress(100);
+      this.loadingScreen.setLoadingMessage('Finalizing...');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await delay(300);
+
+      // Hide loading screen
+      if (this.loadingScreen) {
+        this.loadingScreen.hide();
+      }
 
       // Start the game
       this.gameState.setState(GameState.PLAYING);
@@ -496,6 +603,9 @@ export class Game {
       console.error('Error loading world:', error);
       alert(`Error loading world: ${error.message}`);
       this.gameState.setState(GameState.MENU);
+      if (this.loadingScreen) {
+        this.loadingScreen.hide();
+      }
       if (this.mainMenu) {
         this.mainMenu.show();
       }
