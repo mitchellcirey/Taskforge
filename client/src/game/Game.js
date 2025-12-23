@@ -292,6 +292,20 @@ export class Game {
       this.sceneManager.spawnTrees(30);
       this.sceneManager.spawnSticks(20);
       
+      // Hook harvestable objects to process harvest results (same as in init)
+      this.sceneManager.worldObjects.forEach(obj => {
+        if (obj.harvest && typeof obj.harvest === 'function') {
+          const originalHarvest = obj.harvest.bind(obj);
+          obj.harvest = () => {
+            const results = originalHarvest();
+            if (results && Array.isArray(results)) {
+              this.sceneManager.processHarvestResults(obj, results);
+            }
+            return results;
+          };
+        }
+      });
+      
       // Reset camera to default position
       if (this.sceneManager.cameraController) {
         const startTile = this.sceneManager.tileGrid.getTile(
