@@ -158,4 +158,38 @@ export class BuildingManager {
   getBuildings() {
     return this.buildings;
   }
+
+  /**
+   * Check if a building type has been completed (not just a blueprint)
+   * @param {string} buildingTypeId - The building type ID to check
+   * @returns {boolean} True if at least one completed building of this type exists
+   */
+  hasCompletedBuilding(buildingTypeId) {
+    return this.buildings.some(building => 
+      building.buildingType === buildingTypeId && 
+      !building.isBlueprint && 
+      building.isComplete
+    );
+  }
+
+  /**
+   * Check if a workshop level is unlocked based on completed buildings
+   * @param {string} workshopLevelId - The workshop level ID (workshop-level-1, workshop-level-2, workshop-level-3)
+   * @returns {boolean} True if the workshop level is unlocked
+   */
+  isWorkshopLevelUnlocked(workshopLevelId) {
+    if (workshopLevelId === 'workshop-level-1') {
+      // Level 1 is always unlocked
+      return true;
+    } else if (workshopLevelId === 'workshop-level-2') {
+      // Level 2 requires Level 1 to be completed
+      return this.hasCompletedBuilding('workshop-level-1');
+    } else if (workshopLevelId === 'workshop-level-3') {
+      // Level 3 requires both Level 1 and Level 2 to be completed
+      return this.hasCompletedBuilding('workshop-level-1') && 
+             this.hasCompletedBuilding('workshop-level-2');
+    }
+    // For non-workshop buildings, always return true (they're always unlocked)
+    return true;
+  }
 }

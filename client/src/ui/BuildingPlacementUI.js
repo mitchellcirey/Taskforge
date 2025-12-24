@@ -122,9 +122,9 @@ export class BuildingPlacementUI {
       const item = document.createElement('div');
       item.className = 'building-item';
       
-      // Check if player can afford
-      const canAfford = this.canAfford(buildingType);
-      if (!canAfford) {
+      // Check if workshop level is unlocked
+      const isUnlocked = this.buildingManager.isWorkshopLevelUnlocked(buildingType.id);
+      if (!isUnlocked) {
         item.classList.add('disabled');
       }
 
@@ -136,9 +136,10 @@ export class BuildingPlacementUI {
         <div class="building-item-name">${buildingType.name}</div>
         <div class="building-item-description">${buildingType.description}</div>
         <div class="building-item-cost">Cost: ${costText}</div>
+        ${!isUnlocked ? '<div style="color: #ff6b6b; font-size: 11px; margin-top: 5px;">Locked</div>' : ''}
       `;
 
-      if (canAfford) {
+      if (isUnlocked) {
         item.addEventListener('click', () => {
           this.buildingManager.enterPlacementMode(buildingType.id);
           this.hide();
@@ -149,19 +150,7 @@ export class BuildingPlacementUI {
     });
   }
 
-  canAfford(buildingType) {
-    // Bypass in admin mode
-    if (window.adminMode) return true;
-    
-    if (!this.player || !this.player.inventory) return false;
-    
-    for (const [resource, amount] of Object.entries(buildingType.cost)) {
-      if (!this.player.inventory.hasItem(resource, amount)) {
-        return false;
-      }
-    }
-    return true;
-  }
+  // Removed canAfford() - buildings are blueprints and don't require resources upfront
 
   setupEventListeners() {
     const closeButton = this.element.querySelector('#close-building-ui');
@@ -175,7 +164,7 @@ export class BuildingPlacementUI {
       this.container.appendChild(this.element);
     }
     this.element.style.display = 'block';
-    this.populateBuildings(); // Refresh affordability
+    this.populateBuildings(); // Refresh unlock status
   }
 
   hide() {
