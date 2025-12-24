@@ -2,4 +2,5 @@
 export { Wood } from './Wood.js';
 export { Stone } from './Stone.js';
 export { Stick } from './Stick.js';
+export { Iron } from './Iron.js';
 

@@ -29,17 +29,9 @@ export class BuildingManager {
     }
 
     // Check if all tiles in N×N area are available
+    // Blueprints don't require resources upfront - resources are added via right-click
     if (!this.tileGrid.canPlaceBuilding(tileX, tileZ, { width, height })) {
       return false;
-    }
-
-    // Check if player has resources (unless admin mode is enabled)
-    if (!window.adminMode && this.player && this.player.inventory) {
-      for (const [resource, amount] of Object.entries(type.cost)) {
-        if (!this.player.inventory.hasItem(resource, amount)) {
-          return false;
-        }
-      }
     }
 
     return true;
@@ -53,13 +45,6 @@ export class BuildingManager {
     const type = getBuildingType(buildingType);
     if (!type) return false;
 
-    // Deduct resources (unless admin mode is enabled)
-    if (!window.adminMode && this.player && this.player.inventory) {
-      for (const [resource, amount] of Object.entries(type.cost)) {
-        this.player.inventory.removeItem(resource, amount);
-      }
-    }
-
     // Get building size (accounting for rotation)
     let width = type.size.width;
     let height = type.size.height;
@@ -69,20 +54,15 @@ export class BuildingManager {
       [width, height] = [height, width];
     }
 
-    // Create building at exact tile coordinates
-    const building = new Building(this.scene, this.tileGrid, tileX, tileZ, buildingType);
+    // Create blueprint (not complete building) - resources will be added via right-click
+    const building = new Building(this.scene, this.tileGrid, tileX, tileZ, buildingType, true);
     
     // Apply rotation (locked to 90° increments)
     if (this.buildingRotation !== 0 && building.mesh) {
       building.mesh.rotation.y = (this.buildingRotation * Math.PI) / 180;
     }
-    
-    // Customize based on type
-    if (buildingType === 'storage') {
-      building.inventory = new StorageInventory(16); // Storage can hold 16 items of one type
-    }
 
-    // Mark all tiles in N×N area as occupied
+    // Mark all tiles in N×N area as occupied (blueprints still occupy tiles)
     const tiles = this.tileGrid.getTilesInArea(tileX, tileZ, { width, height });
     tiles.forEach(tile => {
       tile.occupied = true;

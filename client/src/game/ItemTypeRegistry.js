@@ -1,4 +1,4 @@
-import { ItemType, Wood, Stone, Stick, Axe, Pickaxe } from './items/index.js';
+import { ItemType, Wood, Stone, Stick, Iron, Axe, Pickaxe, Shovel, Hammer } from './items/index.js';
 
 /**
  * Registry for all item types in the game.
@@ -17,8 +17,11 @@ export class ItemTypeRegistry {
     this.register(new Wood());
     this.register(new Stone());
     this.register(new Stick());
+    this.register(new Iron());
     this.register(new Axe());
     this.register(new Pickaxe());
+    this.register(new Shovel());
+    this.register(new Hammer());
   }
 
   /**

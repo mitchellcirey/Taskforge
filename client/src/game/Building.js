@@ -1,36 +1,291 @@
 import * as THREE from 'three';
 import { WorldObject } from './WorldObject.js';
 import { getItemType } from './ItemTypeRegistry.js';
+import { BuildingTypes, getBuildingType } from './BuildingTypes.js';
+import { StorageInventory } from './StorageInventory.js';
 
 export class Building extends WorldObject {
-  constructor(scene, tileGrid, tileX, tileZ, buildingType) {
+  constructor(scene, tileGrid, tileX, tileZ, buildingType, isBlueprint = false) {
     super(scene, tileGrid, tileX, tileZ);
     this.buildingType = buildingType;
-    this.isComplete = true;
+    this.isBlueprint = isBlueprint;
+    this.isComplete = !isBlueprint; // Blueprints are not complete until resources are added
     this.inventory = null; // For storage buildings
     this.itemIconMesh = null; // For storage item icon display
     this.flashAnimation = null; // For red flashing when full
+    
+    // Blueprint resource tracking
+    this.requiredResources = null; // Will be set from BuildingTypes
+    this.addedResources = {}; // Tracks progress: { stick: 0, stone: 0, ... }
+    this.progressText = null; // THREE.Sprite for progress display
+    this.progressCanvas = null; // Canvas for progress text
+    this.blueprintAnimationTime = 0; // For pulsing animation
+    
     this.create();
   }
 
   create() {
-    if (this.buildingType === 'storage') {
-      this.createStorageContainer();
-    } else if (this.buildingType === 'campfire') {
-      this.createCampfire();
+    if (this.isBlueprint) {
+      this.createBlueprintVisual();
     } else {
-      // Default building creation
-      const geometry = new THREE.BoxGeometry(1, 1, 1);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x8B7355, // Brown
-        roughness: 0.8,
-        metalness: 0.2
-      });
-      this.mesh = new THREE.Mesh(geometry, material);
-      this.mesh.position.set(this.worldX, 0.5, this.worldZ);
-      this.mesh.castShadow = true;
-      this.mesh.receiveShadow = true;
-      this.scene.add(this.mesh);
+      if (this.buildingType === 'storage') {
+        this.createStorageContainer();
+      } else if (this.buildingType === 'campfire') {
+        this.createCampfire();
+      } else {
+        // Default building creation
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshStandardMaterial({ 
+          color: 0x8B7355, // Brown
+          roughness: 0.8,
+          metalness: 0.2
+        });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.set(this.worldX, 0.5, this.worldZ);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        this.scene.add(this.mesh);
+      }
+    }
+  }
+
+  createBlueprintVisual() {
+    // Get building type info
+    const type = getBuildingType(this.buildingType);
+    
+    if (!type) {
+      console.error(`Unknown building type: ${this.buildingType}`);
+      return;
+    }
+    
+    // Store required resources
+    this.requiredResources = { ...type.cost };
+    
+    // Initialize added resources
+    for (const resourceType of Object.keys(this.requiredResources)) {
+      this.addedResources[resourceType] = 0;
+    }
+    
+    // Create glowing outline/holographic effect
+    const blueprintGroup = new THREE.Group();
+    
+    // Get building size
+    const width = type.size.width;
+    const height = type.size.height;
+    const tileSize = this.tileGrid.tileSize;
+    
+    // Create wireframe outline box
+    const geometry = new THREE.BoxGeometry(
+      width * tileSize * 0.95,
+      1.0,
+      height * tileSize * 0.95
+    );
+    
+    // Create glowing material with pulse effect
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x00FFFF, // Cyan for holographic look
+      emissive: 0x00FFFF,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.6,
+      wireframe: false,
+      side: THREE.DoubleSide
+    });
+    
+    // Main outline box
+    const outline = new THREE.Mesh(geometry, material);
+    outline.position.y = 0.5;
+    blueprintGroup.add(outline);
+    
+    // Add edge lines for better visibility
+    const edges = new THREE.EdgesGeometry(geometry);
+    const edgeMaterial = new THREE.LineBasicMaterial({
+      color: 0x00FFFF,
+      linewidth: 2
+    });
+    const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+    edgeLines.position.y = 0.5;
+    blueprintGroup.add(edgeLines);
+    
+    // Position at tile center
+    blueprintGroup.position.set(this.worldX, 0, this.worldZ);
+    this.mesh = blueprintGroup;
+    this.scene.add(this.mesh);
+    
+    // Create progress text display
+    this.createProgressDisplay();
+  }
+
+  createProgressDisplay() {
+    // Create a simple text display using canvas texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    this.progressCanvas = canvas;
+    const context = canvas.getContext('2d');
+    
+    this.updateProgressText(context);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      alphaTest: 0.1
+    });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(2, 1, 1);
+    sprite.position.set(0, 2, 0);
+    
+    this.progressText = sprite;
+    this.mesh.add(sprite);
+  }
+
+  updateProgressText(context) {
+    if (!context || !this.requiredResources) return;
+    
+    // Clear canvas
+    context.clearRect(0, 0, 256, 128);
+    
+    // White background with transparency
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, 256, 128);
+    
+    // White text
+    context.fillStyle = '#FFFFFF';
+    context.font = 'bold 20px Arial';
+    context.textAlign = 'center';
+    
+    // Display progress for each resource
+    let y = 25;
+    const lines = [];
+    for (const [resourceType, required] of Object.entries(this.requiredResources)) {
+      const added = this.addedResources[resourceType] || 0;
+      lines.push(`${added}/${required} ${resourceType}`);
+    }
+    
+    // Draw all lines
+    lines.forEach((line, index) => {
+      context.fillText(line, 128, 25 + index * 25);
+    });
+    
+    // Update texture if sprite exists
+    if (this.progressText && this.progressText.material.map) {
+      this.progressText.material.map.needsUpdate = true;
+    }
+  }
+
+  addResource(itemType, count = 1) {
+    if (!this.isBlueprint || !this.requiredResources) {
+      return false;
+    }
+    
+    // Check if this resource type is needed
+    if (!this.requiredResources.hasOwnProperty(itemType)) {
+      return false;
+    }
+    
+    // Check if we already have enough
+    const current = this.addedResources[itemType] || 0;
+    const required = this.requiredResources[itemType];
+    
+    if (current >= required) {
+      return false; // Already have enough
+    }
+    
+    // Add resource
+    this.addedResources[itemType] = Math.min(current + count, required);
+    
+    // Update progress display
+    if (this.progressCanvas) {
+      const context = this.progressCanvas.getContext('2d');
+      this.updateProgressText(context);
+    }
+    
+    // Check if complete
+    this.checkCompletion();
+    
+    return true;
+  }
+
+  checkCompletion() {
+    if (!this.isBlueprint || !this.requiredResources) {
+      return false;
+    }
+    
+    // Check if all resources are added
+    for (const [resourceType, required] of Object.entries(this.requiredResources)) {
+      const added = this.addedResources[resourceType] || 0;
+      if (added < required) {
+        return false; // Still missing resources
+      }
+    }
+    
+    // All resources added - complete the building
+    this.complete();
+    return true;
+  }
+
+  updateBlueprintAnimation(deltaTime) {
+    if (!this.isBlueprint || !this.mesh) return;
+    
+    // Safety check for deltaTime
+    if (!deltaTime || isNaN(deltaTime) || deltaTime <= 0) {
+      return;
+    }
+    
+    // Accumulate animation time
+    this.blueprintAnimationTime += deltaTime;
+    
+    // Pulse effect - animate emissive intensity
+    const pulseSpeed = 2.0; // Pulses per second
+    const pulsePhase = this.blueprintAnimationTime * pulseSpeed * Math.PI * 2;
+    const intensity = 0.6 + Math.sin(pulsePhase) * 0.3; // Pulse between 0.3 and 0.9
+    
+    // Update materials in the blueprint mesh
+    this.mesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        if (child.material.emissiveIntensity !== undefined) {
+          child.material.emissiveIntensity = intensity;
+        }
+        // Also pulse opacity slightly
+        if (child.material.opacity !== undefined) {
+          child.material.opacity = 0.5 + Math.sin(pulsePhase) * 0.2;
+        }
+      }
+    });
+  }
+
+  complete() {
+    if (!this.isBlueprint) {
+      return;
+    }
+    
+    // Clean up blueprint visual
+    if (this.mesh) {
+      // Dispose of progress text texture
+      if (this.progressText && this.progressText.material) {
+        if (this.progressText.material.map) {
+          this.progressText.material.map.dispose();
+        }
+        this.progressText.material.dispose();
+      }
+      this.scene.remove(this.mesh);
+    }
+    
+    // Clear blueprint references
+    this.progressText = null;
+    this.progressCanvas = null;
+    
+    // Mark as complete
+    this.isBlueprint = false;
+    this.isComplete = true;
+    
+    // Create the actual building
+    this.create();
+    
+    // Customize based on type
+    if (this.buildingType === 'storage') {
+      this.inventory = new StorageInventory(16);
     }
   }
 
@@ -715,6 +970,12 @@ export class Building extends WorldObject {
   }
 
   update(deltaTime) {
+    // Update blueprint animations
+    if (this.isBlueprint) {
+      this.updateBlueprintAnimation(deltaTime);
+      return;
+    }
+    
     // Only update campfire animations
     if (this.buildingType !== 'campfire') return;
     

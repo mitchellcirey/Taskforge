@@ -752,38 +752,81 @@ export class InteractionManager {
 
     this.raycaster.setFromCamera(mouse, this.camera);
 
-    // First check if clicking on a storage container
+    // First check if clicking on a building (blueprint or storage)
     if (this.buildingManager) {
       const buildingMeshes = this.buildingManager.buildings.map(b => b.mesh).filter(m => m !== null);
-      const buildingIntersects = this.raycaster.intersectObjects(buildingMeshes);
+      const buildingIntersects = this.raycaster.intersectObjects(buildingMeshes, true); // true = recursive for groups
       
       if (buildingIntersects.length > 0) {
         const clickedBuilding = this.buildingManager.buildings.find(b => {
-          // Check if the clicked mesh belongs to this building (handle groups)
+          if (!b.mesh) return false;
+          // Check if the clicked mesh belongs to this building (handle groups recursively)
           if (b.mesh instanceof THREE.Group) {
-            return b.mesh.children.includes(buildingIntersects[0].object) || b.mesh === buildingIntersects[0].object;
+            return b.mesh.children.includes(buildingIntersects[0].object) || 
+                   b.mesh === buildingIntersects[0].object ||
+                   this.isMeshInGroup(buildingIntersects[0].object, b.mesh);
           }
           return b.mesh === buildingIntersects[0].object;
         });
         
-        // Handle storage container deposit (right click)
-        if (clickedBuilding && clickedBuilding.buildingType === 'storage' && this.player) {
+        if (clickedBuilding && this.player) {
           const playerPos = this.player.getPosition();
-          if (clickedBuilding.canInteract && clickedBuilding.canInteract(playerPos)) {
-            // Try to deposit the item from selected slot
-            if (clickedBuilding.depositItem(itemType, 1)) {
-              this.player.inventory.removeItem(itemType, 1);
-              // Update hand item display
-              if (this.player.updateHandItem) {
-                this.player.updateHandItem();
+          
+          // Check if player is in range
+          let canInteract = false;
+          if (clickedBuilding.canInteract && typeof clickedBuilding.canInteract === 'function') {
+            try {
+              canInteract = clickedBuilding.canInteract(playerPos);
+            } catch (err) {
+              console.error('Error in canInteract:', err);
+              canInteract = false;
+            }
+          }
+          
+          // Handle blueprint resource addition (right click on blueprint)
+          if (clickedBuilding.isBlueprint) {
+            if (canInteract) {
+              // Try to add resource to blueprint
+              if (clickedBuilding.addResource && typeof clickedBuilding.addResource === 'function') {
+                if (clickedBuilding.addResource(itemType, 1)) {
+                  // Resource was added successfully
+                  this.player.inventory.removeItem(itemType, 1);
+                  // Update hand item display
+                  if (this.player.updateHandItem) {
+                    this.player.updateHandItem();
+                  }
+                  // Check if blueprint is now complete (handled in addResource/checkCompletion)
+                  return;
+                }
               }
+            } else {
+              // Move player to blueprint (use tile coordinates)
+              const { tileX, tileZ } = clickedBuilding.getTilePosition();
+              this.player.moveTo(tileX, tileZ);
               return;
             }
-          } else {
-            // Move player to storage container (use tile coordinates)
-            const { tileX, tileZ } = clickedBuilding.getTilePosition();
-            this.player.moveTo(tileX, tileZ);
-            return;
+          }
+          
+          // Handle storage container deposit (right click on completed storage)
+          if (clickedBuilding.buildingType === 'storage' && !clickedBuilding.isBlueprint) {
+            if (canInteract) {
+              // Try to deposit the item from selected slot
+              if (clickedBuilding.depositItem && typeof clickedBuilding.depositItem === 'function') {
+                if (clickedBuilding.depositItem(itemType, 1)) {
+                  this.player.inventory.removeItem(itemType, 1);
+                  // Update hand item display
+                  if (this.player.updateHandItem) {
+                    this.player.updateHandItem();
+                  }
+                  return;
+                }
+              }
+            } else {
+              // Move player to storage container (use tile coordinates)
+              const { tileX, tileZ } = clickedBuilding.getTilePosition();
+              this.player.moveTo(tileX, tileZ);
+              return;
+            }
           }
         }
       }

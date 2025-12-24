@@ -12,7 +12,7 @@ export class BlueprintManager {
       'axe',
       'Axe',
       'Tool for chopping trees',
-      { wood: 5, stone: 2 },
+      { stick: 2, stone: 2 },
       { type: 'axe', count: 1 },
       true
     ));
@@ -21,8 +21,26 @@ export class BlueprintManager {
       'pickaxe',
       'Pickaxe',
       'Tool for mining stone',
-      { wood: 3, stone: 5 },
+      { stick: 2, stone: 3 },
       { type: 'pickaxe', count: 1 },
+      false
+    ));
+
+    this.addBlueprint(new Blueprint(
+      'shovel',
+      'Shovel',
+      'Tool for digging',
+      { stick: 2, stone: 1, iron: 1 },
+      { type: 'shovel', count: 1 },
+      false
+    ));
+
+    this.addBlueprint(new Blueprint(
+      'hammer',
+      'Hammer',
+      'Tool for construction',
+      { stick: 1, iron: 2 },
+      { type: 'hammer', count: 1 },
       false
     ));
 
