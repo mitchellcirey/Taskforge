@@ -695,7 +695,7 @@ export class Player {
           
           // Walk animation - bounce up and down
           this.walkAnimationTime += deltaTime * 10; // Fast bounce animation
-          const bounceHeight = Math.abs(Math.sin(this.walkAnimationTime)) * 0.1; // Bounce 0.1 units
+          const bounceHeight = Math.abs(Math.sin(this.walkAnimationTime)) * 0.2; // Bounce 0.2 units
           this.mesh.position.y = 0.3 + bounceHeight; // Base Y=0.3, add bounce
         }
 

@@ -839,6 +839,7 @@ export class Game {
       await delay(500);
       this.sceneManager.spawnTrees(400);
       this.sceneManager.spawnSticks(300);
+      this.sceneManager.spawnStones(300);
       
       // Hook harvestable objects to process harvest results (same as in init)
       // Use regular function with stored reference to ensure proper context

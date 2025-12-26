@@ -19,6 +19,7 @@ import { DestinationIndicator } from './DestinationIndicator.js';
 import { CompassUI } from '../ui/CompassUI.js';
 import { Program } from './programming/Program.js';
 import { DayNightCycle } from './DayNightCycle.js';
+import { GrassManager } from './GrassManager.js';
 
 export class SceneManager {
   constructor(container, audioManager = null) {
@@ -45,6 +46,7 @@ export class SceneManager {
     this.dayNightCycle = null;
     this.ambientLight = null;
     this.directionalLight = null;
+    this.grassManager = null;
   }
 
   async init(progressCallback = null, seed = null) {
@@ -120,6 +122,10 @@ export class SceneManager {
     await reportProgress('Generating terrain...', 40, 500);
     this.terrain = new Terrain(this.scene, this.tileGrid, 200, 200);
     this.terrain.create();
+
+    // Create grass manager and spawn grass patches
+    this.grassManager = new GrassManager(this.scene, this.tileGrid);
+    this.grassManager.spawnGrassPatches();
 
     // Create tile highlighter
     this.tileHighlighter = new TileHighlighter(this.scene, this.tileGrid);
@@ -201,6 +207,9 @@ export class SceneManager {
     
     // Spawn sticks around the map (doubled amount)
     this.spawnSticks(300);
+    
+    // Spawn stones around the map (on any walkable tile)
+    this.spawnStones(300);
 
     // Hook harvestable objects to process harvest results
     this.worldObjects.forEach(obj => {
@@ -258,6 +267,15 @@ export class SceneManager {
   }
 
   spawnResource(worldX, worldZ, type, count = 1) {
+    // Check if tile already has content to prevent duplicates
+    const { tileX, tileZ } = this.tileGrid.worldToTile(worldX, worldZ);
+    const tile = this.tileGrid.getTile(tileX, tileZ);
+    
+    if (tile && tile.content) {
+      // Tile already has content, don't spawn another resource
+      return null;
+    }
+    
     const resource = new Resource(this.scene, this.tileGrid, worldX, worldZ, type, count);
     this.worldObjects.push(resource);
     if (this.interactionManager) {
@@ -288,13 +306,13 @@ export class SceneManager {
           const offsetX = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
           const offsetZ = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
           const nearbyTile = this.tileGrid.getTile(objectTilePos.tileX + offsetX, objectTilePos.tileZ + offsetZ);
-          if (nearbyTile && nearbyTile.walkable) {
+          if (nearbyTile && nearbyTile.walkable && !nearbyTile.content) {
             // Spawn at tile center - Resource constructor will center it on the tile
             this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.itemType);
           } else {
             // Fallback to object's tile if nearby tile is invalid
             const objectTile = this.tileGrid.getTile(objectTilePos.tileX, objectTilePos.tileZ);
-            if (objectTile) {
+            if (objectTile && !objectTile.content) {
               this.spawnResource(objectTile.worldX, objectTile.worldZ, result.itemType);
             }
           }
@@ -319,12 +337,12 @@ export class SceneManager {
                 const offsetX = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
                 const offsetZ = Math.floor((Math.random() - 0.5) * 3); // -1, 0, or 1
                 const nearbyTile = this.tileGrid.getTile(objectTilePos.tileX + offsetX, objectTilePos.tileZ + offsetZ);
-                if (nearbyTile && nearbyTile.walkable) {
+                if (nearbyTile && nearbyTile.walkable && !nearbyTile.content) {
                   this.spawnResource(nearbyTile.worldX, nearbyTile.worldZ, result.itemType);
                 } else {
                   // Fallback to object's tile if nearby tile is invalid
                   const objectTile = this.tileGrid.getTile(objectTilePos.tileX, objectTilePos.tileZ);
-                  if (objectTile) {
+                  if (objectTile && !objectTile.content) {
                     this.spawnResource(objectTile.worldX, objectTile.worldZ, result.itemType);
                   }
                 }
@@ -350,8 +368,8 @@ export class SceneManager {
       const tileZ = Math.floor(Math.random() * this.tileGrid.height);
       const tile = this.tileGrid.getTile(tileX, tileZ);
 
-      // Sticks ONLY spawn on dirt tiles
-      if (tile && tile.walkable && !tile.occupied && tile.type === 'dirt') {
+      // Sticks ONLY spawn on dirt tiles, and only if tile has no content
+      if (tile && tile.walkable && !tile.occupied && !tile.content && tile.type === 'dirt') {
         const stick = new Resource(this.scene, this.tileGrid, tile.worldX, tile.worldZ, 'stick');
         this.worldObjects.push(stick);
         if (this.interactionManager) {
@@ -362,6 +380,29 @@ export class SceneManager {
     }
     
     console.log(`Spawned ${spawned} sticks out of ${count} requested`);
+  }
+
+  spawnStones(count) {
+    const attempts = count * 25; // Try more times to find available tiles
+    let spawned = 0;
+
+    for (let i = 0; i < attempts && spawned < count; i++) {
+      const tileX = Math.floor(Math.random() * this.tileGrid.width);
+      const tileZ = Math.floor(Math.random() * this.tileGrid.height);
+      const tile = this.tileGrid.getTile(tileX, tileZ);
+
+      // Stones spawn on any walkable tile (not restricted to dirt), and only if tile has no content
+      if (tile && tile.walkable && !tile.occupied && !tile.content) {
+        const stone = new Resource(this.scene, this.tileGrid, tile.worldX, tile.worldZ, 'stone');
+        this.worldObjects.push(stone);
+        if (this.interactionManager) {
+          this.interactionManager.addObject(stone);
+        }
+        spawned++;
+      }
+    }
+    
+    console.log(`Spawned ${spawned} stones out of ${count} requested`);
   }
 
   onWindowResize() {
@@ -429,6 +470,12 @@ export class SceneManager {
       this.villagerManager.villagers = [];
     }
 
+    // Clear grass
+    if (this.grassManager) {
+      this.grassManager.dispose();
+      this.grassManager = null;
+    }
+
     // Reset player position (but keep player object)
     if (this.player) {
       // Player will be repositioned in restoreFromSave
@@ -461,7 +508,11 @@ export class SceneManager {
     // Create new terrain
     this.terrain = new Terrain(this.scene, this.tileGrid, 200, 200);
     this.terrain.create();
-    
+
+    // Create new grass manager and spawn grass patches
+    this.grassManager = new GrassManager(this.scene, this.tileGrid);
+    this.grassManager.spawnGrassPatches();
+
     // Update tile highlighter if it exists
     if (this.tileHighlighter) {
       this.tileHighlighter.tileGrid = this.tileGrid;
@@ -723,6 +774,11 @@ export class SceneManager {
     // Update day/night cycle
     if (this.dayNightCycle) {
       this.dayNightCycle.update(deltaTime);
+    }
+
+    // Update grass wind animation
+    if (this.grassManager) {
+      this.grassManager.update(deltaTime);
     }
 
     // Render scene
