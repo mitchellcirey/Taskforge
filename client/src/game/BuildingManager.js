@@ -13,6 +13,7 @@ export class BuildingManager {
     this.selectedBuildingType = null;
     this.previewBuilding = null;
     this.buildingRotation = 0; // Rotation in 90° increments (0, 90, 180, 270)
+    this.buildingToMove = null; // Building being moved
   }
 
   canPlaceBuilding(tileX, tileZ, buildingType) {
@@ -82,6 +83,7 @@ export class BuildingManager {
     this.placementMode = false;
     this.selectedBuildingType = null;
     this.buildingRotation = 0;
+    this.buildingToMove = null; // Clear move mode
     if (this.previewBuilding) {
       this.scene.remove(this.previewBuilding);
       this.previewBuilding = null;
@@ -190,6 +192,156 @@ export class BuildingManager {
              this.hasCompletedBuilding('workshop-level-2');
     }
     // For non-workshop buildings, always return true (they're always unlocked)
+    return true;
+  }
+
+  /**
+   * Destroy a building
+   * @param {Building} building - The building to destroy
+   */
+  destroyBuilding(building) {
+    if (!building) return;
+
+    // Validate that storage is empty if it's a storage building
+    if (building.buildingType === 'storage' && !building.canDestroy()) {
+      console.warn('Cannot destroy storage building: storage is not empty');
+      return;
+    }
+
+    // Get building tile position and size
+    const { tileX, tileZ } = building.getTilePosition();
+    const type = getBuildingType(building.buildingType);
+    if (!type) return;
+
+    // Get building size
+    let width = type.size.width;
+    let height = type.size.height;
+    
+    // If rotated, swap width and height
+    if (building.mesh && building.mesh.rotation) {
+      const rotationY = (building.mesh.rotation.y * 180) / Math.PI;
+      if (rotationY === 90 || rotationY === 270) {
+        [width, height] = [height, width];
+      }
+    }
+
+    // Clear tile occupation
+    const tiles = this.tileGrid.getTilesInArea(tileX, tileZ, { width, height });
+    tiles.forEach(tile => {
+      tile.occupied = false;
+    });
+
+    // Remove building from list
+    const index = this.buildings.indexOf(building);
+    if (index > -1) {
+      this.buildings.splice(index, 1);
+    }
+
+    // Remove mesh from scene
+    if (building.mesh) {
+      this.scene.remove(building.mesh);
+    }
+
+    // Clean up building
+    if (building.remove) {
+      building.remove();
+    }
+  }
+
+  /**
+   * Start move mode for a building
+   * @param {Building} building - The building to move
+   */
+  startMoveMode(building) {
+    if (!building) return;
+
+    // Validate that storage is empty if it's a storage building
+    if (building.buildingType === 'storage' && !building.canMove()) {
+      console.warn('Cannot move storage building: storage is not empty');
+      return;
+    }
+
+    // Store the building to move
+    this.buildingToMove = building;
+    
+    // Enter placement mode with the same building type
+    this.enterPlacementMode(building.buildingType);
+    
+    // Store original rotation
+    if (building.mesh && building.mesh.rotation) {
+      this.buildingRotation = (building.mesh.rotation.y * 180) / Math.PI;
+    }
+  }
+
+  /**
+   * Move a building to a new location
+   * @param {Building} building - The building to move
+   * @param {number} newTileX - New tile X coordinate
+   * @param {number} newTileZ - New tile Z coordinate
+   */
+  moveBuilding(building, newTileX, newTileZ) {
+    if (!building) return false;
+
+    // Validate that storage is empty if it's a storage building
+    if (building.buildingType === 'storage' && !building.canMove()) {
+      console.warn('Cannot move storage building: storage is not empty');
+      return false;
+    }
+
+    // Get building type info
+    const type = getBuildingType(building.buildingType);
+    if (!type) return false;
+
+    // Get current position and size
+    const { tileX: oldTileX, tileZ: oldTileZ } = building.getTilePosition();
+    let width = type.size.width;
+    let height = type.size.height;
+    
+    // If rotated, swap width and height
+    if (building.mesh && building.mesh.rotation) {
+      const rotationY = (building.mesh.rotation.y * 180) / Math.PI;
+      if (rotationY === 90 || rotationY === 270) {
+        [width, height] = [height, width];
+      }
+    }
+
+    // Check if new location is valid
+    if (!this.canPlaceBuilding(newTileX, newTileZ, building.buildingType)) {
+      return false;
+    }
+
+    // Clear old tile occupation
+    const oldTiles = this.tileGrid.getTilesInArea(oldTileX, oldTileZ, { width, height });
+    oldTiles.forEach(tile => {
+      tile.occupied = false;
+    });
+
+    // Update building position
+    building.tileX = newTileX;
+    building.tileZ = newTileZ;
+    
+    // Get new tile and update world position
+    const newTile = this.tileGrid.getTile(newTileX, newTileZ);
+    if (newTile) {
+      building.worldX = newTile.worldX;
+      building.worldZ = newTile.worldZ;
+      
+      // Update mesh position
+      if (building.mesh) {
+        building.mesh.position.set(building.worldX, building.mesh.position.y, building.worldZ);
+      }
+    }
+
+    // Set new tile occupation
+    const newTiles = this.tileGrid.getTilesInArea(newTileX, newTileZ, { width, height });
+    newTiles.forEach(tile => {
+      tile.occupied = true;
+    });
+
+    // Clear move mode
+    this.buildingToMove = null;
+    this.exitPlacementMode();
+
     return true;
   }
 }

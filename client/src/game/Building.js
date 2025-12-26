@@ -292,7 +292,7 @@ export class Building extends WorldObject {
   createStorageContainer() {
     const containerGroup = new THREE.Group();
     
-    // Create isometric wooden crate matching the provided model exactly
+    // Create flat, horizontal wooden crate matching the provided image exactly
     // Warm light tan/yellowish-brown for planks (burlywood/tan color)
     const plankColor = 0xDEB887; // Burlywood - light yellowish-brown
     const plankMaterial = new THREE.MeshStandardMaterial({ 
@@ -311,14 +311,14 @@ export class Building extends WorldObject {
       flatShading: true
     });
     
-    // Crate dimensions - taller container with open top
-    const crateWidth = 1.0;  // X dimension
-    const crateDepth = 1.0;  // Z dimension
-    const crateHeight = 1.2; // Y dimension - taller container (no top lid)
+    // Crate dimensions - flat, horizontal crate sitting on ground
+    const crateWidth = 1.0;   // X dimension
+    const crateDepth = 1.0;   // Z dimension
+    const crateHeight = 0.15; // Y dimension - flat crate height
     
     // Plank dimensions
     const plankThickness = 0.02; // Thin gaps between planks
-    const plankDepth = 0.08; // How far planks extend from the frame
+    const plankHeight = 0.08; // Height of individual planks
     
     // Create vertical planks on front face (4 distinct planks)
     const frontPlankCount = 4;
@@ -327,10 +327,10 @@ export class Building extends WorldObject {
     const startX = -totalPlankWidth / 2;
     
     for (let i = 0; i < frontPlankCount; i++) {
-      const plankGeometry = new THREE.BoxGeometry(plankWidth, crateHeight, plankDepth);
+      const plankGeometry = new THREE.BoxGeometry(plankWidth, plankHeight, plankThickness);
       const plank = new THREE.Mesh(plankGeometry, plankMaterial);
       const plankX = startX + i * (plankWidth + plankThickness) + plankWidth / 2;
-      plank.position.set(plankX, crateHeight / 2, crateDepth / 2 - plankDepth / 2);
+      plank.position.set(plankX, plankHeight / 2, crateDepth / 2 - plankThickness / 2);
       plank.castShadow = true;
       plank.receiveShadow = true;
       containerGroup.add(plank);
@@ -338,10 +338,10 @@ export class Building extends WorldObject {
     
     // Create vertical planks on back face
     for (let i = 0; i < frontPlankCount; i++) {
-      const plankGeometry = new THREE.BoxGeometry(plankWidth, crateHeight, plankDepth);
+      const plankGeometry = new THREE.BoxGeometry(plankWidth, plankHeight, plankThickness);
       const plank = new THREE.Mesh(plankGeometry, plankMaterial);
       const plankX = startX + i * (plankWidth + plankThickness) + plankWidth / 2;
-      plank.position.set(plankX, crateHeight / 2, -crateDepth / 2 + plankDepth / 2);
+      plank.position.set(plankX, plankHeight / 2, -crateDepth / 2 + plankThickness / 2);
       plank.castShadow = true;
       plank.receiveShadow = true;
       containerGroup.add(plank);
@@ -354,10 +354,10 @@ export class Building extends WorldObject {
     const startZ = -totalSidePlankWidth / 2;
     
     for (let i = 0; i < sidePlankCount; i++) {
-      const plankGeometry = new THREE.BoxGeometry(plankDepth, crateHeight, sidePlankWidth);
+      const plankGeometry = new THREE.BoxGeometry(plankThickness, plankHeight, sidePlankWidth);
       const plank = new THREE.Mesh(plankGeometry, plankMaterial);
       const plankZ = startZ + i * (sidePlankWidth + plankThickness) + sidePlankWidth / 2;
-      plank.position.set(crateWidth / 2 - plankDepth / 2, crateHeight / 2, plankZ);
+      plank.position.set(crateWidth / 2 - plankThickness / 2, plankHeight / 2, plankZ);
       plank.castShadow = true;
       plank.receiveShadow = true;
       containerGroup.add(plank);
@@ -365,10 +365,10 @@ export class Building extends WorldObject {
     
     // Create vertical planks on left side
     for (let i = 0; i < sidePlankCount; i++) {
-      const plankGeometry = new THREE.BoxGeometry(plankDepth, crateHeight, sidePlankWidth);
+      const plankGeometry = new THREE.BoxGeometry(plankThickness, plankHeight, sidePlankWidth);
       const plank = new THREE.Mesh(plankGeometry, plankMaterial);
       const plankZ = startZ + i * (sidePlankWidth + plankThickness) + sidePlankWidth / 2;
-      plank.position.set(-crateWidth / 2 + plankDepth / 2, crateHeight / 2, plankZ);
+      plank.position.set(-crateWidth / 2 + plankThickness / 2, plankHeight / 2, plankZ);
       plank.castShadow = true;
       plank.receiveShadow = true;
       containerGroup.add(plank);
@@ -376,12 +376,12 @@ export class Building extends WorldObject {
     
     // Vertical corner beams (darker brown framing) - prominent and thick
     const cornerBeamSize = 0.06; // Thick corner beams
-    const cornerBeamHeight = crateHeight;
+    const cornerBeamHeight = plankHeight;
     const cornerPositions = [
-      [-crateWidth / 2, crateHeight / 2, -crateDepth / 2],
-      [crateWidth / 2, crateHeight / 2, -crateDepth / 2],
-      [-crateWidth / 2, crateHeight / 2, crateDepth / 2],
-      [crateWidth / 2, crateHeight / 2, crateDepth / 2]
+      [-crateWidth / 2, cornerBeamHeight / 2, -crateDepth / 2],
+      [crateWidth / 2, cornerBeamHeight / 2, -crateDepth / 2],
+      [-crateWidth / 2, cornerBeamHeight / 2, crateDepth / 2],
+      [crateWidth / 2, cornerBeamHeight / 2, crateDepth / 2]
     ];
     
     cornerPositions.forEach(pos => {
@@ -393,10 +393,10 @@ export class Building extends WorldObject {
       containerGroup.add(corner);
     });
     
-    // Top frame - continuous dark brown border around top panel (larger for visibility)
+    // Top frame - continuous dark brown border around top panel
     const topFrameThickness = 0.06; // Substantial frame thickness
-    const topFrameOuterSize = 0.6; // Outer size of frame - bigger for visibility
-    const topFrameInnerSize = 0.5; // Inner size (where panel goes) - bigger for visibility
+    const topFrameOuterSize = 0.6; // Outer size of frame
+    const topFrameInnerSize = 0.5; // Inner size (where panel goes)
     const frameWidth = (topFrameOuterSize - topFrameInnerSize) / 2;
     
     // Create frame as a hollow square (4 sides)
@@ -432,7 +432,7 @@ export class Building extends WorldObject {
     frameRight.position.set(topFrameOuterSize / 2 - frameWidth / 2, crateHeight + topFrameThickness / 2, 0);
     containerGroup.add(frameRight);
     
-    // Top panel (light-colored square for item icon) - RECESSED (flush or slightly below frame)
+    // Top panel (light-colored square for item icon) - flush with frame
     const panelSize = topFrameInnerSize;
     const panelGeometry = new THREE.PlaneGeometry(panelSize, panelSize);
     const panelMaterial = new THREE.MeshStandardMaterial({ 
@@ -443,12 +443,13 @@ export class Building extends WorldObject {
     });
     const topPanel = new THREE.Mesh(panelGeometry, panelMaterial);
     topPanel.rotation.x = -Math.PI / 2; // Face upward
-    // Position panel flush with or slightly below frame level (recessed)
+    // Position panel flush with frame level
     topPanel.position.set(0, crateHeight + topFrameThickness - 0.001, 0);
     topPanel.receiveShadow = true;
     containerGroup.add(topPanel);
     this.topPanel = topPanel; // Store reference for flashing
     
+    // Position crate on ground (Y=0)
     this.mesh = containerGroup;
     this.mesh.position.set(this.worldX, 0, this.worldZ);
     this.mesh.castShadow = true;
@@ -682,10 +683,10 @@ export class Building extends WorldObject {
       }
     }
     
-    // Create a bold, blocky question mark using geometry (pixelated style) - larger for visibility
+    // Create a bold, blocky question mark using geometry (pixelated style) - horizontal/flat
     const questionGroup = new THREE.Group();
     
-    // Add dark background panel behind question mark for contrast (same as item icons)
+    // Add dark background panel behind question mark for contrast
     const bgSize = 0.25;
     const bgGeometry = new THREE.PlaneGeometry(bgSize, bgSize);
     const bgMaterial = new THREE.MeshStandardMaterial({ 
@@ -700,46 +701,46 @@ export class Building extends WorldObject {
     questionGroup.add(background);
     
     const questionMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xFFFFFF, // White for high contrast on dark background
+      color: 0x000000, // Black for high contrast on light panel
       roughness: 0.5,
-      emissive: 0xFFFFFF,
-      emissiveIntensity: 0.3
+      emissive: 0x000000,
+      emissiveIntensity: 0.0
     });
     
-    // Question mark top curve (blocky, composed of segments) - larger
+    // Question mark top curve (blocky, composed of segments) - horizontal layout
     // Top horizontal segment
     const topSeg1 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.06, 0.01),
+      new THREE.BoxGeometry(0.12, 0.01, 0.06),
       questionMaterial
     );
-    topSeg1.position.set(0.03, 0.12, 0.01);
+    topSeg1.position.set(0.03, 0.01, 0.12);
     questionGroup.add(topSeg1);
     
     // Top diagonal segment
     const topSeg2 = new THREE.Mesh(
-      new THREE.BoxGeometry(0.10, 0.06, 0.01),
+      new THREE.BoxGeometry(0.10, 0.01, 0.06),
       questionMaterial
     );
-    topSeg2.position.set(0.02, 0.08, 0.01);
-    topSeg2.rotation.z = Math.PI / 6;
+    topSeg2.position.set(0.02, 0.01, 0.08);
+    topSeg2.rotation.y = Math.PI / 6;
     questionGroup.add(topSeg2);
     
-    // Question mark stem (vertical line) - bold and larger
-    const stemGeometry = new THREE.BoxGeometry(0.08, 0.16, 0.01);
+    // Question mark stem (vertical line) - bold and horizontal
+    const stemGeometry = new THREE.BoxGeometry(0.08, 0.01, 0.16);
     const stem = new THREE.Mesh(stemGeometry, questionMaterial);
-    stem.position.set(0, 0.03, 0.01);
+    stem.position.set(0, 0.01, 0.03);
     questionGroup.add(stem);
     
-    // Question mark dot (bottom) - bold and square, larger
-    const dotGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.01);
+    // Question mark dot (bottom) - bold and square, horizontal
+    const dotGeometry = new THREE.BoxGeometry(0.08, 0.01, 0.08);
     const dot = new THREE.Mesh(dotGeometry, questionMaterial);
-    dot.position.set(0, -0.06, 0.01);
+    dot.position.set(0, 0.01, -0.06);
     questionGroup.add(dot);
     
-    // Position question mark on top panel (crate height 1.2 + frame 0.06 - recess 0.001 = 1.259)
-    // Make it stand up more like the item icons
-    questionGroup.position.set(0, 1.26, 0.02);
-    questionGroup.rotation.x = -Math.PI / 3; // Tilt up more for visibility
+    // Position question mark horizontally on top panel (flat)
+    // Crate height 0.15 + frame 0.06 - recess 0.001 = 0.209
+    questionGroup.position.set(0, 0.21, 0);
+    questionGroup.rotation.x = -Math.PI / 2; // Face upward (flat on panel)
     
     this.itemIconMesh = questionGroup;
     this.mesh.add(questionGroup);
@@ -763,9 +764,9 @@ export class Building extends WorldObject {
       }
     }
     
-    // Create item icon model (much larger scale for clear visibility)
+    // Create item icon model - horizontal/flat display
     const iconGroup = new THREE.Group();
-    const scale = 0.5; // Much larger scale for clear visibility
+    const scale = 0.3; // Scale for horizontal display
     
     // Add dark background panel behind icon for contrast
     const bgSize = 0.25;
@@ -786,10 +787,12 @@ export class Building extends WorldObject {
     if (itemTypeObj) {
       // Use the item type's getIconModel method
       const iconModel = itemTypeObj.getIconModel(scale);
+      // Rotate model to be horizontal (flat on panel)
+      iconModel.rotation.x = Math.PI / 2; // Rotate to lie flat
       iconGroup.add(iconModel);
     } else {
       // Fallback for unknown item types
-      const defaultGeometry = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
+      const defaultGeometry = new THREE.BoxGeometry(0.2, 0.01, 0.2);
       const defaultMaterial = new THREE.MeshStandardMaterial({ 
         color: 0xFFFFFF,
         roughness: 0.7,
@@ -799,11 +802,10 @@ export class Building extends WorldObject {
       iconGroup.add(defaultIcon);
     }
     
-    // Position icon on top panel (crate height 1.2 + frame 0.06 - recess 0.001 = 1.259)
-    // Make icon stand up more vertically for better visibility (not flat)
-    iconGroup.position.set(0, 1.26, 0.02);
-    iconGroup.rotation.x = -Math.PI / 3; // Tilt up more (60 degrees instead of flat)
-    iconGroup.rotation.y = Math.PI / 4; // Slight rotation for better view
+    // Position icon horizontally on top panel (flat)
+    // Crate height 0.15 + frame 0.06 - recess 0.001 = 0.209
+    iconGroup.position.set(0, 0.21, 0);
+    iconGroup.rotation.x = -Math.PI / 2; // Face upward (flat on panel)
     
     this.itemIconMesh = iconGroup;
     this.mesh.add(iconGroup);
@@ -963,6 +965,24 @@ export class Building extends WorldObject {
       }
     }
     return false;
+  }
+
+  canDestroy() {
+    // Storage buildings can only be destroyed if empty
+    if (this.buildingType === 'storage' && this.inventory) {
+      return this.inventory.isEmpty();
+    }
+    // Other buildings can always be destroyed
+    return true;
+  }
+
+  canMove() {
+    // Storage buildings can only be moved if empty
+    if (this.buildingType === 'storage' && this.inventory) {
+      return this.inventory.isEmpty();
+    }
+    // Other buildings can always be moved
+    return true;
   }
 
   getType() {

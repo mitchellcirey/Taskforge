@@ -124,8 +124,9 @@ export class SceneManager {
     this.terrain.create();
 
     // Create grass manager and spawn grass patches
-    this.grassManager = new GrassManager(this.scene, this.tileGrid);
-    this.grassManager.spawnGrassPatches();
+    // DISABLED: Grass patches temporarily disabled
+    // this.grassManager = new GrassManager(this.scene, this.tileGrid);
+    // this.grassManager.spawnGrassPatches();
 
     // Create tile highlighter
     this.tileHighlighter = new TileHighlighter(this.scene, this.tileGrid);
@@ -510,8 +511,9 @@ export class SceneManager {
     this.terrain.create();
 
     // Create new grass manager and spawn grass patches
-    this.grassManager = new GrassManager(this.scene, this.tileGrid);
-    this.grassManager.spawnGrassPatches();
+    // DISABLED: Grass patches temporarily disabled
+    // this.grassManager = new GrassManager(this.scene, this.tileGrid);
+    // this.grassManager.spawnGrassPatches();
 
     // Update tile highlighter if it exists
     if (this.tileHighlighter) {
@@ -777,9 +779,10 @@ export class SceneManager {
     }
 
     // Update grass wind animation
-    if (this.grassManager) {
-      this.grassManager.update(deltaTime);
-    }
+    // DISABLED: Grass patches temporarily disabled
+    // if (this.grassManager) {
+    //   this.grassManager.update(deltaTime);
+    // }
 
     // Render scene
     if (this.renderer && this.scene && this.camera) {

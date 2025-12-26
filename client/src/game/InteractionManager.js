@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Resource } from './Resource.js';
+import { BuildingUI } from '../ui/BuildingUI.js';
 
 export class InteractionManager {
   constructor(camera, renderer, scene, player, worldObjects, buildingManager, sceneManager, tileHighlighter) {
@@ -340,6 +341,24 @@ export class InteractionManager {
       // Snap to tile grid
       const { tileX, tileZ } = this.sceneManager.tileGrid.worldToTile(intersectionPoint.x, intersectionPoint.z);
 
+      // Check if we're in move mode
+      if (this.buildingManager.buildingToMove) {
+        // Move the existing building
+        const success = this.buildingManager.moveBuilding(
+          this.buildingManager.buildingToMove,
+          tileX,
+          tileZ
+        );
+        if (success) {
+          // Building was moved successfully
+          if (this.sceneManager.buildingMenu) {
+            this.sceneManager.buildingMenu.update();
+          }
+        }
+        return;
+      }
+
+      // Normal placement mode - place new building
       const building = this.buildingManager.placeBuilding(tileX, tileZ, this.buildingManager.selectedBuildingType);
       if (building) {
         this.worldObjects.push(building);
@@ -386,125 +405,40 @@ export class InteractionManager {
             }
             
             if (clickedBuilding) {
-              // Skip UI for campfire (temporary fix for crash)
-              if (clickedBuilding.buildingType === 'campfire') {
-                console.log('Campfire clicked - UI disabled to prevent crash');
-                return;
-              }
-              
-              // Handle storage container withdraw (left click)
-              if (clickedBuilding.buildingType === 'storage' && this.player) {
+              // Show building UI for all buildings on left-click
+              if (this.sceneManager && clickedBuilding && clickedBuilding.buildingType) {
                 try {
-                  if (!this.player.getPosition) {
-                    return; // Player doesn't have getPosition method
-                  }
-                  
-                  const playerPos = this.player.getPosition();
-                  if (!playerPos) {
-                    return; // Invalid player position
-                  }
-                  
-                  // Check if can interact
-                  let canInteract = false;
-                  if (clickedBuilding.canInteract && typeof clickedBuilding.canInteract === 'function') {
+                  // Close existing UI first
+                  if (this.sceneManager.currentBuildingUI) {
                     try {
-                      canInteract = clickedBuilding.canInteract(playerPos);
-                    } catch (err) {
-                      console.error('Error in canInteract:', err);
-                      canInteract = false;
+                      this.sceneManager.currentBuildingUI.destroy();
+                    } catch (e) {
+                      console.warn('Error destroying existing building UI:', e);
                     }
+                    this.sceneManager.currentBuildingUI = null;
                   }
                   
-                  if (canInteract) {
-                    // Player is in range, interact
-                    if (clickedBuilding.interact && typeof clickedBuilding.interact === 'function') {
-                      try {
-                        clickedBuilding.interact(this.player);
-                      } catch (err) {
-                        console.error('Error in interact:', err);
-                      }
-                    }
-                    // Update hand item display
-                    if (this.player.updateHandItem && typeof this.player.updateHandItem === 'function') {
-                      try {
-                        this.player.updateHandItem();
-                      } catch (err) {
-                        console.error('Error updating hand item:', err);
-                      }
-                    }
-                    return;
-                  } else {
-                    // Move player to storage container (use tile coordinates)
+                  // Create BuildingUI (synchronous import at top of file)
+                  if (clickedBuilding) {
                     try {
-                      const tilePos = clickedBuilding.getTilePosition();
-                      if (!tilePos) {
-                        return; // Invalid tile position
-                      }
-                      
-                      const { tileX, tileZ } = tilePos;
-                      const playerPos = this.player.getPosition();
-                      
-                      // Clear any previous obstructed highlights
-                      if (clickedBuilding.clearObstructedHighlight) {
-                        clickedBuilding.clearObstructedHighlight();
-                      }
-                      
-                      // Find best adjacent tile (cardinal directions only, sorted by distance)
-                      const bestTile = this.findBestAdjacentTile(tileX, tileZ, playerPos);
-                      
-                      if (bestTile) {
-                        // Move to the best adjacent tile
-                        if (this.player.moveTo && typeof this.player.moveTo === 'function') {
-                          this.player.moveTo(bestTile.tileX, bestTile.tileZ);
-                        }
-                      } else {
-                        // No available tiles - highlight building in red
-                        if (clickedBuilding.highlightObstructed) {
-                          clickedBuilding.highlightObstructed();
-                        }
-                      }
-                    } catch (err) {
-                      console.error('Error moving to storage:', err);
-                    }
-                    return;
-                  }
-                } catch (error) {
-                  console.error('Error handling storage interaction:', error);
-                  // Don't freeze the game on error
-                  return;
-                }
-              } else {
-                // For other buildings, show building UI
-                if (this.sceneManager && clickedBuilding && clickedBuilding.buildingType) {
-                  try {
-                    // Close existing UI first
-                    if (this.sceneManager.currentBuildingUI) {
-                      try {
-                        this.sceneManager.currentBuildingUI.destroy();
-                      } catch (e) {
-                        console.warn('Error destroying existing building UI:', e);
-                      }
-                      this.sceneManager.currentBuildingUI = null;
-                    }
-                    
-                    // Import and create BuildingUI
-                    const { BuildingUI } = await import('../ui/BuildingUI.js');
-                    if (BuildingUI && clickedBuilding) {
                       this.sceneManager.currentBuildingUI = new BuildingUI(
                         this.sceneManager.container,
-                        clickedBuilding
+                        clickedBuilding,
+                        this.buildingManager
                       );
                       if (this.sceneManager.currentBuildingUI && this.sceneManager.currentBuildingUI.show) {
                         this.sceneManager.currentBuildingUI.show();
                       }
+                    } catch (error) {
+                      console.error('Error creating building UI:', error);
                     }
-                  } catch (error) {
-                    console.error('Error showing building UI:', error);
-                    console.error('Error stack:', error.stack);
-                    // Clean up on error
-                    if (this.sceneManager) {
-                      this.sceneManager.currentBuildingUI = null;
-                    }
+                  }
+                } catch (error) {
+                  console.error('Error showing building UI:', error);
+                  console.error('Error stack:', error.stack);
+                  // Clean up on error
+                  if (this.sceneManager) {
+                    this.sceneManager.currentBuildingUI = null;
                   }
                 }
               }
