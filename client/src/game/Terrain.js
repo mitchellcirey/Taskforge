@@ -24,7 +24,9 @@ export class Terrain {
     // Texture loader and texture references
     this.textureLoader = new THREE.TextureLoader();
     this.grassTexture = null;
+    this.grassTexture2 = null;
     this.dirtTexture = null;
+    this.dirtTexture2 = null;
     
     // Load textures
     this.loadTextures();
@@ -45,7 +47,7 @@ export class Terrain {
    * Load terrain textures
    */
   loadTextures() {
-    // Load grass texture
+    // Load grass texture variant 1
     this.grassTexture = this.textureLoader.load(
       'public/images/textures/grasstexture.png',
       (texture) => {
@@ -67,7 +69,29 @@ export class Terrain {
       this.grassTexture.repeat.set(1, 1); // One texture per tile
     }
     
-    // Load dirt texture
+    // Load grass texture variant 2
+    this.grassTexture2 = this.textureLoader.load(
+      'public/images/textures/grasstexture2.png',
+      (texture) => {
+        // Texture loaded successfully - update material if it exists
+        if (this.materials && this.materials.grass2) {
+          this.materials.grass2.map = texture;
+          this.materials.grass2.needsUpdate = true;
+        }
+      },
+      undefined,
+      (error) => {
+        console.warn('Failed to load grass texture 2:', error);
+      }
+    );
+    // Configure texture properties immediately (texture object exists even while loading)
+    if (this.grassTexture2) {
+      this.grassTexture2.wrapS = THREE.RepeatWrapping;
+      this.grassTexture2.wrapT = THREE.RepeatWrapping;
+      this.grassTexture2.repeat.set(1, 1); // One texture per tile
+    }
+    
+    // Load dirt texture variant 1
     this.dirtTexture = this.textureLoader.load(
       'public/images/textures/dirttexture.png',
       (texture) => {
@@ -88,6 +112,28 @@ export class Terrain {
       this.dirtTexture.wrapT = THREE.RepeatWrapping;
       this.dirtTexture.repeat.set(1, 1); // One texture per tile
     }
+    
+    // Load dirt texture variant 2
+    this.dirtTexture2 = this.textureLoader.load(
+      'public/images/textures/dirttexture2.png',
+      (texture) => {
+        // Texture loaded successfully - update material if it exists
+        if (this.materials && this.materials.dirt2) {
+          this.materials.dirt2.map = texture;
+          this.materials.dirt2.needsUpdate = true;
+        }
+      },
+      undefined,
+      (error) => {
+        console.warn('Failed to load dirt texture 2:', error);
+      }
+    );
+    // Configure texture properties immediately (texture object exists even while loading)
+    if (this.dirtTexture2) {
+      this.dirtTexture2.wrapS = THREE.RepeatWrapping;
+      this.dirtTexture2.wrapT = THREE.RepeatWrapping;
+      this.dirtTexture2.repeat.set(1, 1); // One texture per tile
+    }
   }
 
   /**
@@ -95,7 +141,7 @@ export class Terrain {
    */
   createBiomeMaterials() {
     return {
-      // Grass - vibrant green (Autonauts style) with texture
+      // Grass - vibrant green (Autonauts style) with texture variant 1
       grass: new THREE.MeshStandardMaterial({
         map: this.grassTexture || null,
         color: 0x5A9A4A, // Autonauts grass green (used as tint if texture exists)
@@ -104,9 +150,27 @@ export class Terrain {
         side: THREE.DoubleSide
       }),
       
-      // Soil/Dirt - brown earth tone with texture
+      // Grass variant 2
+      grass2: new THREE.MeshStandardMaterial({
+        map: this.grassTexture2 || null,
+        color: 0x5A9A4A, // Autonauts grass green (used as tint if texture exists)
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      }),
+      
+      // Soil/Dirt - brown earth tone with texture variant 1
       dirt: new THREE.MeshStandardMaterial({
         map: this.dirtTexture || null,
+        color: 0x8B6F47, // Autonauts soil brown (used as tint if texture exists)
+        roughness: 0.95,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      }),
+      
+      // Dirt variant 2
+      dirt2: new THREE.MeshStandardMaterial({
+        map: this.dirtTexture2 || null,
         color: 0x8B6F47, // Autonauts soil brown (used as tint if texture exists)
         roughness: 0.95,
         metalness: 0.0,
@@ -205,12 +269,22 @@ export class Terrain {
     tileGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat
     
     // Group tiles by type for instanced rendering (Autonauts: discrete tiles)
+    // Separate groups for texture variants to support random texture assignment
     const tilePositions = {
       grass: [],
+      grass2: [],
       dirt: [],
+      dirt2: [],
       sand: [],
       water: [],
       treeSoil: []
+    };
+    
+    // Simple seeded random function for deterministic texture assignment
+    // Uses tile coordinates as seed for consistent results
+    const seededRandom = (x, z) => {
+      const hash = ((x * 374761393) + (z * 668265263)) % 2147483647;
+      return hash / 2147483647.0;
     };
     
     // Collect all tile positions by type
@@ -237,7 +311,20 @@ export class Terrain {
           biomeType = 'grass';
         }
         
-        if (tilePositions[biomeType]) {
+        // For grass and dirt, randomly assign to variant 1 or 2
+        if (biomeType === 'grass') {
+          const variant = seededRandom(tileX, tileZ) < 0.5 ? 'grass' : 'grass2';
+          tilePositions[variant].push({
+            x: worldPos.x,
+            z: worldPos.z
+          });
+        } else if (biomeType === 'dirt') {
+          const variant = seededRandom(tileX, tileZ) < 0.5 ? 'dirt' : 'dirt2';
+          tilePositions[variant].push({
+            x: worldPos.x,
+            z: worldPos.z
+          });
+        } else if (tilePositions[biomeType]) {
           tilePositions[biomeType].push({
             x: worldPos.x,
             z: worldPos.z
@@ -514,9 +601,17 @@ export class Terrain {
       this.grassTexture.dispose();
       this.grassTexture = null;
     }
+    if (this.grassTexture2) {
+      this.grassTexture2.dispose();
+      this.grassTexture2 = null;
+    }
     if (this.dirtTexture) {
       this.dirtTexture.dispose();
       this.dirtTexture = null;
+    }
+    if (this.dirtTexture2) {
+      this.dirtTexture2.dispose();
+      this.dirtTexture2 = null;
     }
     
     this.instancedMeshes.clear();

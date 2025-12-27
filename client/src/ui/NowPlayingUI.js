@@ -1,8 +1,10 @@
 export class NowPlayingUI {
-  constructor(container) {
+  constructor(container, audioManager = null) {
     this.container = container;
+    this.audioManager = audioManager;
     this.element = null;
-    this.textElement = null;
+    this.labelElement = null;
+    this.trackNameElement = null;
     this.fadeOutTimeout = null;
     this.create();
   }
@@ -11,12 +13,18 @@ export class NowPlayingUI {
     this.element = document.createElement('div');
     this.element.id = 'now-playing-ui';
     
-    // Create text element
-    this.textElement = document.createElement('div');
-    this.textElement.id = 'now-playing-text';
-    this.textElement.textContent = '';
+    // Create label element for "Now Playing: "
+    this.labelElement = document.createElement('span');
+    this.labelElement.id = 'now-playing-label';
+    this.labelElement.textContent = 'Now Playing: ';
     
-    this.element.appendChild(this.textElement);
+    // Create track name element (will be highlighted in gold)
+    this.trackNameElement = document.createElement('span');
+    this.trackNameElement.id = 'now-playing-track';
+    this.trackNameElement.textContent = '';
+    
+    this.element.appendChild(this.labelElement);
+    this.element.appendChild(this.trackNameElement);
 
     // Add styles (only once)
     if (!document.getElementById('now-playing-ui-styles')) {
@@ -25,7 +33,7 @@ export class NowPlayingUI {
       style.textContent = `
         #now-playing-ui {
           position: fixed;
-          bottom: 70px;
+          top: 20px;
           right: 20px;
           z-index: 1001;
           color: #ffffff;
@@ -37,12 +45,20 @@ export class NowPlayingUI {
           transition: opacity 0.3s ease-in-out;
           text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
           white-space: nowrap;
+          background: rgba(0, 0, 0, 0.5);
+          padding: 8px 12px;
+          border-radius: 4px;
         }
         #now-playing-ui.visible {
           opacity: 1;
         }
-        #now-playing-text {
+        #now-playing-label {
           line-height: 1.2;
+        }
+        #now-playing-track {
+          line-height: 1.2;
+          color: #FFD700;
+          font-weight: bold;
         }
       `;
       document.head.appendChild(style);
@@ -54,6 +70,11 @@ export class NowPlayingUI {
   }
 
   showTrack(trackName) {
+    // Check if music is muted - don't show UI if muted
+    if (this.audioManager && this.audioManager.musicMuted) {
+      return;
+    }
+
     // Clear any existing fade-out timeout
     if (this.fadeOutTimeout) {
       clearTimeout(this.fadeOutTimeout);
@@ -62,7 +83,7 @@ export class NowPlayingUI {
 
     // Format track name: convert underscores to spaces and capitalize words
     const formattedName = this.formatTrackName(trackName);
-    this.textElement.textContent = `Now Playing: ${formattedName}`;
+    this.trackNameElement.textContent = formattedName;
 
     // Show the element (fade in)
     this.element.classList.add('visible');

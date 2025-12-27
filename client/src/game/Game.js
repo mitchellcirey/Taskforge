@@ -303,7 +303,7 @@ export class Game {
     this.versionWatermark = new VersionWatermark(this.container);
 
     // Create now playing UI
-    this.nowPlayingUI = new NowPlayingUI(this.container);
+    this.nowPlayingUI = new NowPlayingUI(this.container, this.audioManager);
 
     // Add GameState listener to automatically manage menu music
     this.gameState.onStateChange('*', (newState, oldState) => {

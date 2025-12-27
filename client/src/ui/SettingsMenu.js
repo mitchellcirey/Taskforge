@@ -117,22 +117,33 @@ export class SettingsMenu {
             <div class="settings-options">
               <div class="settings-option">
                 <span class="settings-label">Streamer Mode</span>
-                <button class="grid-toggle-button ${this.streamerMode ? 'on' : 'off'}" id="streamer-mode-toggle">
-                  ${this.streamerMode ? 'On' : 'Off'}
-                </button>
+                <label class="toggle-label-wrapper">
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="streamer-mode-toggle" ${this.streamerMode ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
               </div>
               ${this.tileGrid ? `
+              <div class="settings-separator"></div>
               <div class="settings-option">
                 <span class="settings-label">Show Grid</span>
-                <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
-                  ${this.gridVisible ? 'On' : 'Off'}
-                </button>
+                <label class="toggle-label-wrapper">
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="grid-toggle" ${this.gridVisible ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
               </div>
+              <div class="settings-separator"></div>
               <div class="settings-option">
                 <span class="settings-label">Day/Night Cycle</span>
-                <button class="grid-toggle-button ${this.dayNightCycleEnabled ? 'on' : 'off'}" id="daynight-toggle">
-                  ${this.dayNightCycleEnabled ? 'On' : 'Off'}
-                </button>
+                <label class="toggle-label-wrapper">
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="daynight-toggle" ${this.dayNightCycleEnabled ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
               </div>
               ` : `
               <div class="settings-option">
@@ -337,6 +348,26 @@ export class SettingsMenu {
         text-align: left;
       }
 
+      .toggle-label-wrapper {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .audio-control-row > .settings-label {
+        flex-shrink: 0;
+        width: 200px;
+        text-align: left;
+      }
+
+      .settings-separator {
+        width: 100%;
+        height: 1px;
+        background: rgba(52, 73, 94, 0.2);
+        margin: 10px 0;
+      }
+
       .audio-option {
         flex-direction: column;
         align-items: stretch;
@@ -431,70 +462,56 @@ export class SettingsMenu {
         font-weight: bold;
       }
 
-      .grid-toggle-button {
+      .toggle-switch {
         position: relative;
-        background: rgba(231, 76, 60, 0.9);
-        border: 2px solid #e74c3c;
-        border-radius: 6px;
-        color: #ffffff;
-        font-size: 16px;
-        padding: 6px 16px;
-        min-width: 60px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-family: 'Arial', sans-serif;
-        font-weight: 600;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        overflow: hidden;
+        display: inline-block;
+        width: 60px;
+        height: 30px;
       }
 
-      .grid-toggle-button.on {
-        background: rgba(46, 204, 113, 0.9);
-        border-color: #2ecc71;
-        color: #ffffff;
-      }
-
-      .grid-toggle-button.off {
-        background: rgba(231, 76, 60, 0.9);
-        border-color: #e74c3c;
-        color: #ffffff;
-      }
-
-      .grid-toggle-button::before {
-        content: '';
+      .toggle-switch input[type="checkbox"] {
+        opacity: 0;
+        width: 0;
+        height: 0;
         position: absolute;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
         top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.4s ease;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.3s;
+        border-radius: 30px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
       }
 
-      .grid-toggle-button:hover::before {
-        left: 100%;
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
       }
 
-      .grid-toggle-button:hover {
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-        transform: translateY(-2px);
+      .toggle-switch input:checked + .toggle-slider {
+        background-color: #34495e;
       }
 
-      .grid-toggle-button.on:hover {
-        border-color: #27ae60;
-        background: rgba(39, 174, 96, 1);
+      .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(30px);
       }
 
-      .grid-toggle-button.off:hover {
-        border-color: #c0392b;
-        background: rgba(192, 57, 43, 1);
-      }
-
-      .grid-toggle-button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      .toggle-switch input:focus + .toggle-slider {
+        box-shadow: 0 0 1px #34495e, 0 0 0 3px rgba(52, 73, 94, 0.2);
       }
 
       .settings-info {
@@ -604,9 +621,8 @@ export class SettingsMenu {
 
     // Grid toggle
     if (gridToggle) {
-      gridToggle.addEventListener('click', () => {
-        this.gridVisible = !this.gridVisible;
-        this.updateToggleButton();
+      gridToggle.addEventListener('change', (e) => {
+        this.gridVisible = e.target.checked;
         this.updateGridVisibility();
         this.saveSettings();
       });
@@ -614,9 +630,8 @@ export class SettingsMenu {
 
     // Day/Night Cycle toggle
     if (dayNightToggle) {
-      dayNightToggle.addEventListener('click', () => {
-        this.dayNightCycleEnabled = !this.dayNightCycleEnabled;
-        this.updateDayNightToggleButton();
+      dayNightToggle.addEventListener('change', (e) => {
+        this.dayNightCycleEnabled = e.target.checked;
         this.updateDayNightCycle();
         this.saveSettings();
       });
@@ -624,9 +639,8 @@ export class SettingsMenu {
 
     // Streamer Mode toggle
     if (streamerModeToggle) {
-      streamerModeToggle.addEventListener('click', () => {
-        this.streamerMode = !this.streamerMode;
-        this.updateStreamerModeToggleButton();
+      streamerModeToggle.addEventListener('change', (e) => {
+        this.streamerMode = e.target.checked;
         this.saveSettings();
         // Notify version watermark to update
         this.updateStreamerModeVisibility();
@@ -724,24 +738,21 @@ export class SettingsMenu {
   updateToggleButton() {
     const gridToggle = this.element.querySelector('#grid-toggle');
     if (gridToggle) {
-      gridToggle.textContent = this.gridVisible ? 'On' : 'Off';
-      gridToggle.className = `grid-toggle-button ${this.gridVisible ? 'on' : 'off'}`;
+      gridToggle.checked = this.gridVisible;
     }
   }
 
   updateDayNightToggleButton() {
     const dayNightToggle = this.element.querySelector('#daynight-toggle');
     if (dayNightToggle) {
-      dayNightToggle.textContent = this.dayNightCycleEnabled ? 'On' : 'Off';
-      dayNightToggle.className = `grid-toggle-button ${this.dayNightCycleEnabled ? 'on' : 'off'}`;
+      dayNightToggle.checked = this.dayNightCycleEnabled;
     }
   }
 
   updateStreamerModeToggleButton() {
     const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
     if (streamerModeToggle) {
-      streamerModeToggle.textContent = this.streamerMode ? 'On' : 'Off';
-      streamerModeToggle.className = `grid-toggle-button ${this.streamerMode ? 'on' : 'off'}`;
+      streamerModeToggle.checked = this.streamerMode;
     }
   }
 
@@ -761,46 +772,54 @@ export class SettingsMenu {
         generalTabPanel.innerHTML = `
           <div class="settings-option">
             <span class="settings-label">Streamer Mode</span>
-            <button class="grid-toggle-button ${this.streamerMode ? 'on' : 'off'}" id="streamer-mode-toggle">
-              ${this.streamerMode ? 'On' : 'Off'}
-            </button>
+            <label class="toggle-label-wrapper">
+              <div class="toggle-switch">
+                <input type="checkbox" id="streamer-mode-toggle" ${this.streamerMode ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
           </div>
+          <div class="settings-separator"></div>
           <div class="settings-option">
             <span class="settings-label">Show Grid</span>
-            <button class="grid-toggle-button ${this.gridVisible ? 'on' : 'off'}" id="grid-toggle">
-              ${this.gridVisible ? 'On' : 'Off'}
-            </button>
+            <label class="toggle-label-wrapper">
+              <div class="toggle-switch">
+                <input type="checkbox" id="grid-toggle" ${this.gridVisible ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
           </div>
+          <div class="settings-separator"></div>
           <div class="settings-option">
             <span class="settings-label">Day/Night Cycle</span>
-            <button class="grid-toggle-button ${this.dayNightCycleEnabled ? 'on' : 'off'}" id="daynight-toggle">
-              ${this.dayNightCycleEnabled ? 'On' : 'Off'}
-            </button>
+            <label class="toggle-label-wrapper">
+              <div class="toggle-switch">
+                <input type="checkbox" id="daynight-toggle" ${this.dayNightCycleEnabled ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
           </div>
         `;
         const gridToggle = this.element.querySelector('#grid-toggle');
         if (gridToggle) {
-          gridToggle.addEventListener('click', () => {
-            this.gridVisible = !this.gridVisible;
-            this.updateToggleButton();
+          gridToggle.addEventListener('change', (e) => {
+            this.gridVisible = e.target.checked;
             this.updateGridVisibility();
             this.saveSettings();
           });
         }
         const dayNightToggle = this.element.querySelector('#daynight-toggle');
         if (dayNightToggle) {
-          dayNightToggle.addEventListener('click', () => {
-            this.dayNightCycleEnabled = !this.dayNightCycleEnabled;
-            this.updateDayNightToggleButton();
+          dayNightToggle.addEventListener('change', (e) => {
+            this.dayNightCycleEnabled = e.target.checked;
             this.updateDayNightCycle();
             this.saveSettings();
           });
         }
         const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
         if (streamerModeToggle) {
-          streamerModeToggle.addEventListener('click', () => {
-            this.streamerMode = !this.streamerMode;
-            this.updateStreamerModeToggleButton();
+          streamerModeToggle.addEventListener('change', (e) => {
+            this.streamerMode = e.target.checked;
             this.saveSettings();
             this.updateStreamerModeVisibility();
           });
