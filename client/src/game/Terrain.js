@@ -49,7 +49,7 @@ export class Terrain {
   loadTextures() {
     // Load grass texture variant 1
     this.grassTexture = this.textureLoader.load(
-      'public/images/textures/grasstexture.png',
+      'public/images/textures/grassbiome1.png',
       (texture) => {
         // Texture loaded successfully - update material if it exists
         if (this.materials && this.materials.grass) {
@@ -71,7 +71,7 @@ export class Terrain {
     
     // Load grass texture variant 2
     this.grassTexture2 = this.textureLoader.load(
-      'public/images/textures/grasstexture2.png',
+      'public/images/textures/grassbiome2.png',
       (texture) => {
         // Texture loaded successfully - update material if it exists
         if (this.materials && this.materials.grass2) {
@@ -93,7 +93,7 @@ export class Terrain {
     
     // Load dirt texture variant 1
     this.dirtTexture = this.textureLoader.load(
-      'public/images/textures/dirttexture.png',
+      'public/images/textures/dirtbiome1.png',
       (texture) => {
         // Texture loaded successfully - update material if it exists
         if (this.materials && this.materials.dirt) {
@@ -115,7 +115,7 @@ export class Terrain {
     
     // Load dirt texture variant 2
     this.dirtTexture2 = this.textureLoader.load(
-      'public/images/textures/dirttexture2.png',
+      'public/images/textures/dirtbiome2.png',
       (texture) => {
         // Texture loaded successfully - update material if it exists
         if (this.materials && this.materials.dirt2) {

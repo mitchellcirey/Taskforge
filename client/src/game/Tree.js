@@ -38,7 +38,7 @@ export class Tree extends WorldObject {
 
     // Load leaf texture for overlay
     const textureLoader = new THREE.TextureLoader();
-    const leafTexture = textureLoader.load(
+    const baseLeafTexture = textureLoader.load(
       'public/images/textures/leaftexture.png',
       undefined,
       undefined,
@@ -46,10 +46,10 @@ export class Tree extends WorldObject {
         console.warn('Failed to load leaf texture:', error);
       }
     );
-    // Configure texture properties
-    if (leafTexture) {
-      leafTexture.wrapS = THREE.RepeatWrapping;
-      leafTexture.wrapT = THREE.RepeatWrapping;
+    // Configure base texture properties
+    if (baseLeafTexture) {
+      baseLeafTexture.wrapS = THREE.RepeatWrapping;
+      baseLeafTexture.wrapT = THREE.RepeatWrapping;
     }
 
     // Trunk base flare (lighter grayish-tan brown, wider at bottom)
@@ -103,8 +103,14 @@ export class Tree extends WorldObject {
 
     // Bottom tier texture overlay (50% opacity)
     const bottomTierOverlayGeometry = new THREE.ConeGeometry(bottomTierRadius, bottomTierHeight, 6);
+    // Create texture clone for bottom tier with appropriate repeat values
+    const bottomTierTexture = baseLeafTexture ? baseLeafTexture.clone() : null;
+    if (bottomTierTexture) {
+      // Repeat texture around circumference (6 sides) and along height
+      bottomTierTexture.repeat.set(6, Math.ceil(bottomTierHeight / 0.3)); // Repeat 6 times around, scale height repeats
+    }
     const bottomTierOverlayMaterial = new THREE.MeshStandardMaterial({
-      map: leafTexture,
+      map: bottomTierTexture,
       transparent: true,
       opacity: 0.5,
       roughness: 0.7,
@@ -128,15 +134,22 @@ export class Tree extends WorldObject {
       flatShading: true
     });
     const middleTier = new THREE.Mesh(middleTierGeometry, middleTierMaterial);
-    middleTier.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight / 2;
+    // Position middle tier to overlap with bottom tier (moved down by 40% of bottom tier height)
+    middleTier.position.y = flareHeight + trunkHeight + 0.6 * bottomTierHeight + middleTierHeight / 2;
     middleTier.castShadow = true;
     middleTier.receiveShadow = true;
     group.add(middleTier);
 
     // Middle tier texture overlay (50% opacity)
     const middleTierOverlayGeometry = new THREE.ConeGeometry(middleTierRadius, middleTierHeight, 6);
+    // Create texture clone for middle tier with appropriate repeat values
+    const middleTierTexture = baseLeafTexture ? baseLeafTexture.clone() : null;
+    if (middleTierTexture) {
+      // Repeat texture around circumference (6 sides) and along height
+      middleTierTexture.repeat.set(6, Math.ceil(middleTierHeight / 0.3)); // Repeat 6 times around, scale height repeats
+    }
     const middleTierOverlayMaterial = new THREE.MeshStandardMaterial({
-      map: leafTexture,
+      map: middleTierTexture,
       transparent: true,
       opacity: 0.5,
       roughness: 0.7,
@@ -144,7 +157,8 @@ export class Tree extends WorldObject {
       flatShading: true
     });
     const middleTierOverlay = new THREE.Mesh(middleTierOverlayGeometry, middleTierOverlayMaterial);
-    middleTierOverlay.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight / 2;
+    // Position middle tier overlay to match middle tier position
+    middleTierOverlay.position.y = flareHeight + trunkHeight + 0.6 * bottomTierHeight + middleTierHeight / 2;
     middleTierOverlay.castShadow = true;
     middleTierOverlay.receiveShadow = true;
     group.add(middleTierOverlay);
@@ -160,15 +174,24 @@ export class Tree extends WorldObject {
       flatShading: true
     });
     const topTier = new THREE.Mesh(topTierGeometry, topTierMaterial);
-    topTier.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight + topTierHeight / 2;
+    // Position top tier to overlap with middle tier (overlaps by ~30% of middle tier height, but still extends above)
+    // Middle tier top is at: flareHeight + trunkHeight + 0.6 * bottomTierHeight + middleTierHeight
+    // Top tier bottom starts at: middle tier top - 0.3 * middleTierHeight = 0.6 * bottomTierHeight + 0.7 * middleTierHeight
+    topTier.position.y = flareHeight + trunkHeight + 0.6 * bottomTierHeight + 0.7 * middleTierHeight + topTierHeight / 2;
     topTier.castShadow = true;
     topTier.receiveShadow = true;
     group.add(topTier);
 
     // Top tier texture overlay (50% opacity)
     const topTierOverlayGeometry = new THREE.ConeGeometry(topTierRadius, topTierHeight, 6);
+    // Create texture clone for top tier with appropriate repeat values
+    const topTierTexture = baseLeafTexture ? baseLeafTexture.clone() : null;
+    if (topTierTexture) {
+      // Repeat texture around circumference (6 sides) and along height
+      topTierTexture.repeat.set(6, Math.ceil(topTierHeight / 0.3)); // Repeat 6 times around, scale height repeats
+    }
     const topTierOverlayMaterial = new THREE.MeshStandardMaterial({
-      map: leafTexture,
+      map: topTierTexture,
       transparent: true,
       opacity: 0.5,
       roughness: 0.7,
@@ -176,7 +199,8 @@ export class Tree extends WorldObject {
       flatShading: true
     });
     const topTierOverlay = new THREE.Mesh(topTierOverlayGeometry, topTierOverlayMaterial);
-    topTierOverlay.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight + topTierHeight / 2;
+    // Position top tier overlay to match top tier position
+    topTierOverlay.position.y = flareHeight + trunkHeight + 0.6 * bottomTierHeight + 0.7 * middleTierHeight + topTierHeight / 2;
     topTierOverlay.castShadow = true;
     topTierOverlay.receiveShadow = true;
     group.add(topTierOverlay);
