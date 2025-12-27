@@ -36,6 +36,22 @@ export class Tree extends WorldObject {
     const baseScale = 1.2; // Base scale multiplier to make trees slightly bigger
     const scale = this.sizeVariation * baseScale;
 
+    // Load leaf texture for overlay
+    const textureLoader = new THREE.TextureLoader();
+    const leafTexture = textureLoader.load(
+      'public/images/textures/leaftexture.png',
+      undefined,
+      undefined,
+      (error) => {
+        console.warn('Failed to load leaf texture:', error);
+      }
+    );
+    // Configure texture properties
+    if (leafTexture) {
+      leafTexture.wrapS = THREE.RepeatWrapping;
+      leafTexture.wrapT = THREE.RepeatWrapping;
+    }
+
     // Trunk base flare (lighter grayish-tan brown, wider at bottom)
     const flareHeight = 0.1 * scale;
     const flareRadius = 0.3 * scale;
@@ -85,6 +101,22 @@ export class Tree extends WorldObject {
     bottomTier.receiveShadow = true;
     group.add(bottomTier);
 
+    // Bottom tier texture overlay (50% opacity)
+    const bottomTierOverlayGeometry = new THREE.ConeGeometry(bottomTierRadius, bottomTierHeight, 6);
+    const bottomTierOverlayMaterial = new THREE.MeshStandardMaterial({
+      map: leafTexture,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.7,
+      metalness: 0.1,
+      flatShading: true
+    });
+    const bottomTierOverlay = new THREE.Mesh(bottomTierOverlayGeometry, bottomTierOverlayMaterial);
+    bottomTierOverlay.position.y = flareHeight + trunkHeight + bottomTierHeight / 2;
+    bottomTierOverlay.castShadow = true;
+    bottomTierOverlay.receiveShadow = true;
+    group.add(bottomTierOverlay);
+
     // Middle tier (medium, emerald green)
     const middleTierHeight = 1.1 * scale;
     const middleTierRadius = 0.85 * scale;
@@ -101,6 +133,22 @@ export class Tree extends WorldObject {
     middleTier.receiveShadow = true;
     group.add(middleTier);
 
+    // Middle tier texture overlay (50% opacity)
+    const middleTierOverlayGeometry = new THREE.ConeGeometry(middleTierRadius, middleTierHeight, 6);
+    const middleTierOverlayMaterial = new THREE.MeshStandardMaterial({
+      map: leafTexture,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.7,
+      metalness: 0.1,
+      flatShading: true
+    });
+    const middleTierOverlay = new THREE.Mesh(middleTierOverlayGeometry, middleTierOverlayMaterial);
+    middleTierOverlay.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight / 2;
+    middleTierOverlay.castShadow = true;
+    middleTierOverlay.receiveShadow = true;
+    group.add(middleTierOverlay);
+
     // Top tier (smallest, lighter emerald green with flattened apex)
     const topTierHeight = 0.7 * scale;
     const topTierRadius = 0.5 * scale;
@@ -116,6 +164,22 @@ export class Tree extends WorldObject {
     topTier.castShadow = true;
     topTier.receiveShadow = true;
     group.add(topTier);
+
+    // Top tier texture overlay (50% opacity)
+    const topTierOverlayGeometry = new THREE.ConeGeometry(topTierRadius, topTierHeight, 6);
+    const topTierOverlayMaterial = new THREE.MeshStandardMaterial({
+      map: leafTexture,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.7,
+      metalness: 0.1,
+      flatShading: true
+    });
+    const topTierOverlay = new THREE.Mesh(topTierOverlayGeometry, topTierOverlayMaterial);
+    topTierOverlay.position.y = flareHeight + trunkHeight + bottomTierHeight + middleTierHeight + topTierHeight / 2;
+    topTierOverlay.castShadow = true;
+    topTierOverlay.receiveShadow = true;
+    group.add(topTierOverlay);
 
     // Position tree so bottom of trunk is on ground
     group.position.set(this.worldX, 0, this.worldZ);
