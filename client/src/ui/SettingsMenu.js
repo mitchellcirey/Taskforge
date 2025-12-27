@@ -6,6 +6,7 @@ export class SettingsMenu {
     this.element = null;
     this.gridVisible = true; // Default to visible
     this.dayNightCycleEnabled = true; // Default to enabled
+    this.rainEnabled = true; // Default to enabled
     this.streamerMode = false; // Default to disabled
     this.musicVolume = 0.5;
     this.menuMusicVolume = 0.5;
@@ -36,6 +37,11 @@ export class SettingsMenu {
       if (savedStreamerMode !== null) {
         this.streamerMode = savedStreamerMode === 'true';
       }
+      
+      const savedRainEnabled = localStorage.getItem('taskforge_rainEnabled');
+      if (savedRainEnabled !== null) {
+        this.rainEnabled = savedRainEnabled === 'true';
+      }
     } catch (error) {
       console.warn('Failed to load settings:', error);
     }
@@ -46,6 +52,7 @@ export class SettingsMenu {
       localStorage.setItem('taskforge_gridVisible', this.gridVisible.toString());
       localStorage.setItem('taskforge_dayNightCycleEnabled', this.dayNightCycleEnabled.toString());
       localStorage.setItem('taskforge_streamerMode', this.streamerMode.toString());
+      localStorage.setItem('taskforge_rainEnabled', this.rainEnabled.toString());
     } catch (error) {
       console.warn('Failed to save settings:', error);
     }
@@ -141,6 +148,16 @@ export class SettingsMenu {
                 <label class="toggle-label-wrapper">
                   <div class="toggle-switch">
                     <input type="checkbox" id="daynight-toggle" ${this.dayNightCycleEnabled ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="settings-separator"></div>
+              <div class="settings-option">
+                <span class="settings-label">Rain</span>
+                <label class="toggle-label-wrapper">
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="rain-toggle" ${this.rainEnabled ? 'checked' : ''}>
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
@@ -601,6 +618,7 @@ export class SettingsMenu {
   setupEventListeners() {
     const gridToggle = this.element.querySelector('#grid-toggle');
     const dayNightToggle = this.element.querySelector('#daynight-toggle');
+    const rainToggle = this.element.querySelector('#rain-toggle');
     const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
     const closeButton = this.element.querySelector('#close-settings-button');
     const tabButtons = this.element.querySelectorAll('.settings-tab');
@@ -633,6 +651,15 @@ export class SettingsMenu {
       dayNightToggle.addEventListener('change', (e) => {
         this.dayNightCycleEnabled = e.target.checked;
         this.updateDayNightCycle();
+        this.saveSettings();
+      });
+    }
+
+    // Rain toggle
+    if (rainToggle) {
+      rainToggle.addEventListener('change', (e) => {
+        this.rainEnabled = e.target.checked;
+        this.updateWeatherEnabled();
         this.saveSettings();
       });
     }
@@ -749,6 +776,13 @@ export class SettingsMenu {
     }
   }
 
+  updateRainToggleButton() {
+    const rainToggle = this.element.querySelector('#rain-toggle');
+    if (rainToggle) {
+      rainToggle.checked = this.rainEnabled;
+    }
+  }
+
   updateStreamerModeToggleButton() {
     const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
     if (streamerModeToggle) {
@@ -799,6 +833,16 @@ export class SettingsMenu {
               </div>
             </label>
           </div>
+          <div class="settings-separator"></div>
+          <div class="settings-option">
+            <span class="settings-label">Rain</span>
+            <label class="toggle-label-wrapper">
+              <div class="toggle-switch">
+                <input type="checkbox" id="rain-toggle" ${this.rainEnabled ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
         `;
         const gridToggle = this.element.querySelector('#grid-toggle');
         if (gridToggle) {
@@ -816,6 +860,14 @@ export class SettingsMenu {
             this.saveSettings();
           });
         }
+        const rainToggle = this.element.querySelector('#rain-toggle');
+        if (rainToggle) {
+          rainToggle.addEventListener('change', (e) => {
+            this.rainEnabled = e.target.checked;
+            this.updateWeatherEnabled();
+            this.saveSettings();
+          });
+        }
         const streamerModeToggle = this.element.querySelector('#streamer-mode-toggle');
         if (streamerModeToggle) {
           streamerModeToggle.addEventListener('change', (e) => {
@@ -829,6 +881,7 @@ export class SettingsMenu {
     // Apply the saved settings immediately
     this.updateGridVisibility();
     this.updateDayNightCycle();
+    this.updateWeatherEnabled();
   }
 
   updateGridVisibility() {
@@ -845,6 +898,13 @@ export class SettingsMenu {
     // Update day/night cycle setting in SceneManager
     if (window.gameInstance && window.gameInstance.sceneManager) {
       window.gameInstance.sceneManager.setDayNightCycleEnabled(this.dayNightCycleEnabled);
+    }
+  }
+
+  updateWeatherEnabled() {
+    // Update weather enabled setting in SceneManager
+    if (window.gameInstance && window.gameInstance.sceneManager) {
+      window.gameInstance.sceneManager.setWeatherEnabled(this.rainEnabled);
     }
   }
 

@@ -20,6 +20,7 @@ import { CompassUI } from '../ui/CompassUI.js';
 import { Program } from './programming/Program.js';
 import { DayNightCycle } from './DayNightCycle.js';
 import { GrassManager } from './GrassManager.js';
+import { WeatherManager } from './WeatherManager.js';
 
 export class SceneManager {
   constructor(container, audioManager = null) {
@@ -47,6 +48,7 @@ export class SceneManager {
     this.ambientLight = null;
     this.directionalLight = null;
     this.grassManager = null;
+    this.weatherManager = null;
   }
 
   async init(progressCallback = null, seed = null) {
@@ -110,6 +112,10 @@ export class SceneManager {
     // Initialize day/night cycle system
     await reportProgress('Setting up day/night cycle...', 22, 300);
     this.dayNightCycle = new DayNightCycle(this.scene, this.ambientLight, this.directionalLight);
+    
+    // Initialize weather system
+    await reportProgress('Setting up weather system...', 23, 300);
+    this.weatherManager = new WeatherManager(this.scene, this.audioManager);
 
     // Step 4: Creating tile grid (20%)
     await reportProgress('Creating tile grid...', 30, 400);
@@ -477,6 +483,9 @@ export class SceneManager {
       this.grassManager = null;
     }
 
+    // Weather manager doesn't need to be cleared - it persists across world resets
+    // (rain particles are scene-level, not world-level)
+
     // Reset player position (but keep player object)
     if (this.player) {
       // Player will be repositioned in restoreFromSave
@@ -720,6 +729,12 @@ export class SceneManager {
     }
   }
 
+  setWeatherEnabled(enabled) {
+    if (this.weatherManager) {
+      this.weatherManager.setEnabled(enabled);
+    }
+  }
+
   update(deltaTime) {
     // Update player
     if (this.player) {
@@ -836,6 +851,12 @@ export class SceneManager {
     // Update day/night cycle
     if (this.dayNightCycle) {
       this.dayNightCycle.update(deltaTime);
+    }
+
+    // Update weather system
+    if (this.weatherManager) {
+      const cameraPos = this.cameraController ? this.cameraController.focusPoint : null;
+      this.weatherManager.update(deltaTime, cameraPos);
     }
 
     // Update grass wind animation

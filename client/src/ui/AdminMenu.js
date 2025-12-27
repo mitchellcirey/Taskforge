@@ -54,6 +54,18 @@ export class AdminMenu {
               </div>
             </div>
           </div>
+          <div class="admin-option weather-control">
+            <div class="weather-control-header">
+              <span class="admin-label">Weather</span>
+              <span class="current-weather" id="current-weather">Clear</span>
+            </div>
+            <div class="weather-selector-container">
+              <select class="weather-select" id="weather-select">
+                <option value="clear">Clear</option>
+                <option value="rain">Rain</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div class="admin-tabs">
           <button class="admin-tab active" data-tab="resources">Resources</button>
@@ -177,7 +189,8 @@ export class AdminMenu {
         width: 100%;
       }
 
-      .admin-option.time-control {
+      .admin-option.time-control,
+      .admin-option.weather-control {
         padding: 15px;
         background: rgba(52, 73, 94, 0.05);
         border-radius: 8px;
@@ -252,6 +265,55 @@ export class AdminMenu {
         color: #666;
         font-family: 'Arial', sans-serif;
         font-weight: 500;
+      }
+
+      .weather-control-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .current-weather {
+        font-size: 18px;
+        font-weight: 600;
+        color: #34495e;
+        font-family: 'Courier New', monospace;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(52, 73, 94, 0.3);
+        text-transform: capitalize;
+      }
+
+      .weather-selector-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .weather-select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #34495e;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #1a1a1a;
+        font-size: 16px;
+        font-family: 'Arial', sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease;
+      }
+
+      .weather-select:hover {
+        border-color: #2c3e50;
+        background: rgba(255, 255, 255, 1);
+      }
+
+      .weather-select:focus {
+        box-shadow: 0 0 0 3px rgba(52, 73, 94, 0.2);
       }
 
       .admin-label {
@@ -534,6 +596,7 @@ export class AdminMenu {
     const cancelPlacementButton = this.element.querySelector('#cancel-placement');
     const tabs = this.element.querySelectorAll('.admin-tab');
     const timeSlider = this.element.querySelector('#time-slider');
+    const weatherSelect = this.element.querySelector('#weather-select');
 
     bypassToggle.addEventListener('change', (e) => {
       this.adminMode = e.target.checked;
@@ -554,6 +617,14 @@ export class AdminMenu {
         this.switchTab(tabName);
       });
     });
+
+    // Weather selector
+    if (weatherSelect) {
+      weatherSelect.addEventListener('change', (e) => {
+        const weatherType = e.target.value;
+        this.setWeather(weatherType);
+      });
+    }
 
     // Time slider
     if (timeSlider) {
@@ -1087,6 +1158,37 @@ export class AdminMenu {
     }
   }
 
+  setWeather(weatherType) {
+    const gameInstance = window.gameInstance;
+    if (gameInstance && gameInstance.sceneManager && gameInstance.sceneManager.weatherManager) {
+      gameInstance.sceneManager.weatherManager.setWeather(weatherType);
+      this.updateWeatherDisplay();
+    }
+  }
+
+  updateWeatherDisplay() {
+    const gameInstance = window.gameInstance;
+    const weatherElement = this.element.querySelector('#current-weather');
+    const weatherSelect = this.element.querySelector('#weather-select');
+    
+    if (!gameInstance || !gameInstance.sceneManager || !gameInstance.sceneManager.weatherManager) {
+      if (weatherElement) weatherElement.textContent = 'N/A';
+      return;
+    }
+
+    const weatherManager = gameInstance.sceneManager.weatherManager;
+    const currentWeather = weatherManager.getCurrentWeather();
+    const weatherName = currentWeather === 'rain' ? 'Rain' : 'Clear';
+    
+    if (weatherElement) {
+      weatherElement.textContent = weatherName;
+    }
+    
+    if (weatherSelect) {
+      weatherSelect.value = currentWeather;
+    }
+  }
+
   startTimeUpdate() {
     // Update time display every second
     this.timeUpdateInterval = setInterval(() => {
@@ -1110,6 +1212,7 @@ export class AdminMenu {
     this.element.classList.add('visible');
     this.generateLists(); // Regenerate lists when shown
     this.updateTimeDisplay(); // Update time display when shown
+    this.updateWeatherDisplay(); // Update weather display when shown
     this.startTimeUpdate(); // Start updating time display
   }
 

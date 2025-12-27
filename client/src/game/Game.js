@@ -91,6 +91,13 @@ export class Game {
       }
 
       this.audioManager.loadGameplayMusic(gameplayTracks);
+      
+      // Load rain sound effect (looping)
+      try {
+        await this.audioManager.loadSound('rain', 'public/sounds/rain.mp3', false);
+      } catch (e) {
+        console.warn('Could not load rain sound:', e);
+      }
     } catch (e) {
       console.warn('Some audio files could not be loaded:', e);
     }
