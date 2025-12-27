@@ -8,6 +8,7 @@ import { CharacterMenu } from '../ui/CharacterMenu.js';
 import { AchievementsMenu } from '../ui/AchievementsMenu.js';
 import { AdminMenu } from '../ui/AdminMenu.js';
 import { VersionWatermark } from '../ui/VersionWatermark.js';
+import { NowPlayingUI } from '../ui/NowPlayingUI.js';
 import { SaveLoadDialog } from '../ui/SaveLoadDialog.js';
 import { SaveDialog } from '../ui/SaveDialog.js';
 import { PlaySubmenu } from '../ui/PlaySubmenu.js';
@@ -34,6 +35,7 @@ export class Game {
     // Store game instance globally for access from other modules
     window.gameInstance = this;
     this.versionWatermark = null;
+    this.nowPlayingUI = null;
     this.saveLoadDialog = null;
     this.characterNameDialog = null;
     this.playSubmenu = null;
@@ -299,6 +301,9 @@ export class Game {
 
     // Create version watermark (always visible)
     this.versionWatermark = new VersionWatermark(this.container);
+
+    // Create now playing UI
+    this.nowPlayingUI = new NowPlayingUI(this.container);
 
     // Add GameState listener to automatically manage menu music
     this.gameState.onStateChange('*', (newState, oldState) => {
@@ -890,8 +895,12 @@ export class Game {
     this.gameState.setState(GameState.PLAYING);
     this.isStartingGame = false; // Reset flag when game is fully started
     
-    // Start gameplay music
-    this.audioManager.playNextGameplayTrack();
+    // Start gameplay music with callback to show now playing UI
+    this.audioManager.playNextGameplayTrack((trackName) => {
+      if (this.nowPlayingUI) {
+        this.nowPlayingUI.showTrack(trackName);
+      }
+    });
   }
 
   captureScreenshot() {
@@ -1218,8 +1227,12 @@ export class Game {
       this.gameState.setState(GameState.PLAYING);
       this.mainMenu.hide();
       
-      // Start gameplay music
-      this.audioManager.playNextGameplayTrack();
+      // Start gameplay music with callback to show now playing UI
+      this.audioManager.playNextGameplayTrack((trackName) => {
+        if (this.nowPlayingUI) {
+          this.nowPlayingUI.showTrack(trackName);
+        }
+      });
       
       console.log('World loaded successfully');
     } catch (error) {

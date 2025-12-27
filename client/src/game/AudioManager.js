@@ -86,7 +86,7 @@ export class AudioManager {
     }
   }
 
-  playMusic(name, loop = true) {
+  playMusic(name, loop = true, onPlayCallback = null) {
     // Stop current music
     if (this.currentMusic) {
       this.stopMusic();
@@ -100,7 +100,12 @@ export class AudioManager {
       // Use menuMusicMuted for main_menu track, musicMuted for gameplay tracks
       music.muted = name === 'main_menu' ? this.menuMusicMuted : this.musicMuted;
       this.currentMusic = music;
-      music.play().catch(e => {
+      music.play().then(() => {
+        // Call callback when music successfully starts playing
+        if (onPlayCallback && typeof onPlayCallback === 'function') {
+          onPlayCallback(name);
+        }
+      }).catch(e => {
         console.warn(`Could not play music ${name}:`, e);
       });
     }
@@ -148,18 +153,18 @@ export class AudioManager {
     this.currentGameplayTrackIndex = 0;
   }
 
-  playNextGameplayTrack() {
+  playNextGameplayTrack(onPlayCallback = null) {
     if (this.gameplayMusicTracks.length === 0) return;
 
     const trackName = this.gameplayMusicTracks[this.currentGameplayTrackIndex];
-    this.playMusic(trackName, false);
+    this.playMusic(trackName, false, onPlayCallback);
 
     // When track ends, play next
     const music = this.sounds.get(trackName);
     if (music) {
       music.addEventListener('ended', () => {
         this.currentGameplayTrackIndex = (this.currentGameplayTrackIndex + 1) % this.gameplayMusicTracks.length;
-        this.playNextGameplayTrack();
+        this.playNextGameplayTrack(onPlayCallback);
       }, { once: true });
     }
   }

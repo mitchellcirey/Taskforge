@@ -21,6 +21,14 @@ export class Terrain {
     // Instanced meshes for each tile type (for performance)
     this.instancedMeshes = new Map();
     
+    // Texture loader and texture references
+    this.textureLoader = new THREE.TextureLoader();
+    this.grassTexture = null;
+    this.dirtTexture = null;
+    
+    // Load textures
+    this.loadTextures();
+    
     // Materials for each biome type (Autonauts colors)
     this.materials = this.createBiomeMaterials();
     
@@ -34,21 +42,72 @@ export class Terrain {
   }
 
   /**
+   * Load terrain textures
+   */
+  loadTextures() {
+    // Load grass texture
+    this.grassTexture = this.textureLoader.load(
+      'public/images/textures/grasstexture.png',
+      (texture) => {
+        // Texture loaded successfully - update material if it exists
+        if (this.materials && this.materials.grass) {
+          this.materials.grass.map = texture;
+          this.materials.grass.needsUpdate = true;
+        }
+      },
+      undefined,
+      (error) => {
+        console.warn('Failed to load grass texture:', error);
+      }
+    );
+    // Configure texture properties immediately (texture object exists even while loading)
+    if (this.grassTexture) {
+      this.grassTexture.wrapS = THREE.RepeatWrapping;
+      this.grassTexture.wrapT = THREE.RepeatWrapping;
+      this.grassTexture.repeat.set(1, 1); // One texture per tile
+    }
+    
+    // Load dirt texture
+    this.dirtTexture = this.textureLoader.load(
+      'public/images/textures/dirttexture.png',
+      (texture) => {
+        // Texture loaded successfully - update material if it exists
+        if (this.materials && this.materials.dirt) {
+          this.materials.dirt.map = texture;
+          this.materials.dirt.needsUpdate = true;
+        }
+      },
+      undefined,
+      (error) => {
+        console.warn('Failed to load dirt texture:', error);
+      }
+    );
+    // Configure texture properties immediately (texture object exists even while loading)
+    if (this.dirtTexture) {
+      this.dirtTexture.wrapS = THREE.RepeatWrapping;
+      this.dirtTexture.wrapT = THREE.RepeatWrapping;
+      this.dirtTexture.repeat.set(1, 1); // One texture per tile
+    }
+  }
+
+  /**
    * Create materials for each biome type matching Autonauts' visual style
    */
   createBiomeMaterials() {
     return {
-      // Grass - vibrant green (Autonauts style)
+      // Grass - vibrant green (Autonauts style) with texture
       grass: new THREE.MeshStandardMaterial({
-        color: 0x5A9A4A, // Autonauts grass green
+        map: this.grassTexture || null,
+        color: 0x5A9A4A, // Autonauts grass green (used as tint if texture exists)
         roughness: 0.9,
         metalness: 0.0,
         side: THREE.DoubleSide
       }),
       
-      // Soil/Dirt - brown earth tone
+      // Soil/Dirt - brown earth tone with texture
       dirt: new THREE.MeshStandardMaterial({
-        color: 0x8B6F47, // Autonauts soil brown
+        map: this.dirtTexture || null,
+        color: 0x8B6F47, // Autonauts soil brown (used as tint if texture exists)
         roughness: 0.95,
         metalness: 0.0,
         side: THREE.DoubleSide
@@ -449,6 +508,16 @@ export class Terrain {
     Object.values(this.materials).forEach(material => {
       material.dispose();
     });
+    
+    // Dispose textures
+    if (this.grassTexture) {
+      this.grassTexture.dispose();
+      this.grassTexture = null;
+    }
+    if (this.dirtTexture) {
+      this.dirtTexture.dispose();
+      this.dirtTexture = null;
+    }
     
     this.instancedMeshes.clear();
   }
