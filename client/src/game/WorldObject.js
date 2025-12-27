@@ -259,6 +259,10 @@ export class WorldObject {
     }
 
     if (this.hoverHighlightMesh && this.hoverBorderLines) {
+      // Update position to current world position (in case object was moved)
+      this.hoverHighlightMesh.position.set(this.worldX, 0.02, this.worldZ);
+      this.hoverBorderLines.position.set(this.worldX, 0, this.worldZ);
+      
       // Update fill color
       if (this.hoverHighlightMesh.material) {
         this.hoverHighlightMesh.material.color.setHex(color);
