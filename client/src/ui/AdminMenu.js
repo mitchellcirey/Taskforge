@@ -32,8 +32,11 @@ export class AdminMenu {
         <div class="admin-options">
           <div class="admin-option">
             <label class="admin-label">
-              <input type="checkbox" id="admin-bypass-toggle" ${this.adminMode ? 'checked' : ''}>
-              <span class="checkbox-label">Bypass Build/Craft Requirements</span>
+              <span class="toggle-label">Bypass Build/Craft Requirements</span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="admin-bypass-toggle" ${this.adminMode ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </div>
             </label>
           </div>
           <div class="admin-option time-control">
@@ -267,17 +270,63 @@ export class AdminMenu {
         color: #1a1a1a !important;
       }
 
-      .admin-label input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-        accent-color: #34495e;
-      }
-
-      .checkbox-label {
+      .toggle-label {
         color: #1a1a1a !important;
         font-family: 'Arial', sans-serif;
         font-weight: 600;
+      }
+
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 30px;
+        margin-left: 12px;
+      }
+
+      .toggle-switch input[type="checkbox"] {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.3s;
+        border-radius: 30px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .toggle-switch input:checked + .toggle-slider {
+        background-color: #34495e;
+      }
+
+      .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(30px);
+      }
+
+      .toggle-switch input:focus + .toggle-slider {
+        box-shadow: 0 0 1px #34495e, 0 0 0 3px rgba(52, 73, 94, 0.2);
       }
 
       .admin-tabs {

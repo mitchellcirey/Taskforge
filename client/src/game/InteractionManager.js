@@ -311,11 +311,14 @@ export class InteractionManager {
 
           case 'buildings':
             if (this.buildingManager) {
-              const building = this.buildingManager.placeBuilding(tileX, tileZ, type);
+              // Check if bypass is enabled - if so, place fully built building, otherwise blueprint
+              const bypassEnabled = adminMenu.isAdminMode();
+              const isBlueprint = !bypassEnabled;
+              const building = this.buildingManager.placeBuilding(tileX, tileZ, type, isBlueprint);
               if (building) {
                 this.worldObjects.push(building);
                 success = true;
-                console.log('Building placed');
+                console.log('Building placed', bypassEnabled ? '(fully built)' : '(blueprint)');
               } else {
                 console.log('Building placement failed');
               }

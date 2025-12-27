@@ -38,7 +38,7 @@ export class BuildingManager {
     return true;
   }
 
-  placeBuilding(tileX, tileZ, buildingType) {
+  placeBuilding(tileX, tileZ, buildingType, isBlueprint = true) {
     if (!this.canPlaceBuilding(tileX, tileZ, buildingType)) {
       return false;
     }
@@ -55,8 +55,8 @@ export class BuildingManager {
       [width, height] = [height, width];
     }
 
-    // Create blueprint (not complete building) - resources will be added via right-click
-    const building = new Building(this.scene, this.tileGrid, tileX, tileZ, buildingType, true);
+    // Create building (blueprint or fully built based on isBlueprint parameter)
+    const building = new Building(this.scene, this.tileGrid, tileX, tileZ, buildingType, isBlueprint);
     
     // Apply rotation (locked to 90° increments)
     if (this.buildingRotation !== 0 && building.mesh) {
