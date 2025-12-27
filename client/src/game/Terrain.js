@@ -21,6 +21,13 @@ export class Terrain {
     // Instanced meshes for each tile type (for performance)
     this.instancedMeshes = new Map();
     
+    // Performance optimization: Track tile-to-instance mapping for incremental updates
+    // Maps tile key "x,z" to { biomeType, instanceIndex, instancedMesh }
+    this.tileInstanceMap = new Map();
+    
+    // Shared geometry for all tiles (reused across all instanced meshes)
+    this.tileGeometry = null;
+    
     // Texture loader and texture references
     this.textureLoader = new THREE.TextureLoader();
     this.grassTexture = null;
@@ -265,8 +272,14 @@ export class Terrain {
     
     // Create a single plane geometry for tiles (reused for all instances)
     // This geometry will be shared across all instanced meshes
-    const tileGeometry = new THREE.PlaneGeometry(this.tileSize, this.tileSize);
-    tileGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat
+    if (!this.tileGeometry) {
+      this.tileGeometry = new THREE.PlaneGeometry(this.tileSize, this.tileSize);
+      this.tileGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat
+    }
+    const tileGeometry = this.tileGeometry;
+    
+    // Clear tile instance map for fresh start
+    this.tileInstanceMap.clear();
     
     // Group tiles by type for instanced rendering (Autonauts: discrete tiles)
     // Separate groups for texture variants to support random texture assignment
@@ -354,6 +367,16 @@ export class Terrain {
         const pos = positions[i];
         matrix.makeTranslation(pos.x, 0, pos.z);
         instancedMesh.setMatrixAt(i, matrix);
+        
+        // Track this tile in the instance map for incremental updates
+        // Find the tile coordinates from world position
+        const { tileX, tileZ } = this.tileGrid.worldToTile(pos.x, pos.z);
+        const tileKey = `${tileX},${tileZ}`;
+        this.tileInstanceMap.set(tileKey, {
+          biomeType: biomeType,
+          instanceIndex: i,
+          instancedMesh: instancedMesh
+        });
       }
       
       instancedMesh.instanceMatrix.needsUpdate = true;
@@ -531,14 +554,195 @@ export class Terrain {
   }
 
   /**
+   * Get biome type from tile type
+   */
+  getBiomeTypeFromTileType(tileType) {
+    if (tileType === 'dirt' || tileType === 'soil') {
+      return 'dirt';
+    } else if (tileType === 'sand') {
+      return 'sand';
+    } else if (tileType === 'water') {
+      return 'water';
+    } else if (tileType === 'treeSoil') {
+      return 'treeSoil';
+    } else {
+      return 'grass';
+    }
+  }
+
+  /**
+   * Get biome variant (for grass and dirt that have variants)
+   */
+  getBiomeVariant(biomeType, tileX, tileZ) {
+    if (biomeType === 'grass') {
+      const seededRandom = (x, z) => {
+        const hash = ((x * 374761393) + (z * 668265263)) % 2147483647;
+        return hash / 2147483647.0;
+      };
+      return seededRandom(tileX, tileZ) < 0.5 ? 'grass' : 'grass2';
+    } else if (biomeType === 'dirt') {
+      const seededRandom = (x, z) => {
+        const hash = ((x * 374761393) + (z * 668265263)) % 2147483647;
+        return hash / 2147483647.0;
+      };
+      return seededRandom(tileX, tileZ) < 0.5 ? 'dirt' : 'dirt2';
+    }
+    return biomeType;
+  }
+
+  /**
+   * Remove a tile instance from an instanced mesh
+   */
+  removeTileInstance(tileKey, instanceData) {
+    const { instancedMesh, instanceIndex } = instanceData;
+    const count = instancedMesh.count;
+    
+    if (count === 1) {
+      // Last instance - remove the entire mesh
+      this.terrainGroup.remove(instancedMesh);
+      instancedMesh.dispose();
+      this.instancedMeshes.delete(instanceData.biomeType);
+      return null;
+    }
+    
+    // Swap with last instance and reduce count
+    if (instanceIndex < count - 1) {
+      // Get the last instance's matrix
+      const lastMatrix = new THREE.Matrix4();
+      instancedMesh.getMatrixAt(count - 1, lastMatrix);
+      instancedMesh.setMatrixAt(instanceIndex, lastMatrix);
+      
+      // Update the tile instance map for the swapped tile
+      // Find which tile was at the last position
+      for (const [key, data] of this.tileInstanceMap.entries()) {
+        if (data.instancedMesh === instancedMesh && data.instanceIndex === count - 1) {
+          data.instanceIndex = instanceIndex;
+          break;
+        }
+      }
+    }
+    
+    instancedMesh.count = count - 1;
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    
+    return instancedMesh;
+  }
+
+  /**
+   * Add a tile instance to an instanced mesh
+   */
+  addTileInstance(biomeType, tileX, tileZ) {
+    const worldPos = this.tileGrid.getWorldPosition(tileX, tileZ);
+    let instancedMesh = this.instancedMeshes.get(biomeType);
+    
+    if (!instancedMesh) {
+      // Create new instanced mesh for this biome type
+      const material = this.materials[biomeType];
+      if (!material) {
+        console.warn(`No material found for biome type: ${biomeType}`);
+        return null;
+      }
+      
+      instancedMesh = new THREE.InstancedMesh(
+        this.tileGeometry,
+        material,
+        1 // Start with 1, will grow as needed
+      );
+      instancedMesh.receiveShadow = true;
+      instancedMesh.castShadow = false;
+      this.terrainGroup.add(instancedMesh);
+      this.instancedMeshes.set(biomeType, instancedMesh);
+    }
+    
+    // Check if we need to increase capacity
+    if (instancedMesh.count >= instancedMesh.instanceMatrix.count) {
+      // Need to create a new larger instanced mesh
+      const oldCount = instancedMesh.count;
+      const newCapacity = Math.max(oldCount * 2, oldCount + 10);
+      
+      // Create new mesh with larger capacity
+      const newMesh = new THREE.InstancedMesh(
+        this.tileGeometry,
+        instancedMesh.material,
+        newCapacity
+      );
+      newMesh.receiveShadow = true;
+      newMesh.castShadow = false;
+      
+      // Copy all existing matrices
+      const matrix = new THREE.Matrix4();
+      for (let i = 0; i < oldCount; i++) {
+        instancedMesh.getMatrixAt(i, matrix);
+        newMesh.setMatrixAt(i, matrix);
+      }
+      
+      // Replace old mesh
+      this.terrainGroup.remove(instancedMesh);
+      this.terrainGroup.add(newMesh);
+      this.instancedMeshes.set(biomeType, newMesh);
+      
+      // Update all tile instance references
+      for (const data of this.tileInstanceMap.values()) {
+        if (data.instancedMesh === instancedMesh) {
+          data.instancedMesh = newMesh;
+        }
+      }
+      
+      instancedMesh.dispose();
+      instancedMesh = newMesh;
+    }
+    
+    // Add new instance
+    const instanceIndex = instancedMesh.count;
+    const matrix = new THREE.Matrix4();
+    matrix.makeTranslation(worldPos.x, 0, worldPos.z);
+    instancedMesh.setMatrixAt(instanceIndex, matrix);
+    instancedMesh.count = instanceIndex + 1;
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    
+    return { instancedMesh, instanceIndex };
+  }
+
+  /**
    * Update a specific tile's appearance when its type changes
    * In Autonauts, tiles can change type (e.g., grass to soil when tilled)
+   * Now optimized to update only the affected tile instance
    */
   updateTileType(tileX, tileZ, newType) {
-    // For now, we'll need to recreate the terrain when tiles change
-    // In a more optimized version, we could update individual instances
-    // but for simplicity and to match Autonauts' behavior, we recreate
-    this.create();
+    // Safety check: if terrain hasn't been created yet, create it first
+    if (!this.tileGeometry || !this.terrainGroup) {
+      console.warn('Terrain not initialized, creating terrain first');
+      this.create();
+      return;
+    }
+    
+    const tileKey = `${tileX},${tileZ}`;
+    const oldInstanceData = this.tileInstanceMap.get(tileKey);
+    
+    // Get new biome type
+    const newBiomeType = this.getBiomeTypeFromTileType(newType);
+    const newBiomeVariant = this.getBiomeVariant(newBiomeType, tileX, tileZ);
+    
+    // If biome type hasn't changed, no update needed
+    if (oldInstanceData && oldInstanceData.biomeType === newBiomeVariant) {
+      return;
+    }
+    
+    // Remove from old instanced mesh
+    if (oldInstanceData) {
+      this.removeTileInstance(tileKey, oldInstanceData);
+      this.tileInstanceMap.delete(tileKey);
+    }
+    
+    // Add to new instanced mesh
+    const newInstanceData = this.addTileInstance(newBiomeVariant, tileX, tileZ);
+    if (newInstanceData) {
+      this.tileInstanceMap.set(tileKey, {
+        biomeType: newBiomeVariant,
+        instanceIndex: newInstanceData.instanceIndex,
+        instancedMesh: newInstanceData.instancedMesh
+      });
+    }
   }
 
   /**
@@ -615,5 +819,14 @@ export class Terrain {
     }
     
     this.instancedMeshes.clear();
+    
+    // Dispose shared geometry
+    if (this.tileGeometry) {
+      this.tileGeometry.dispose();
+      this.tileGeometry = null;
+    }
+    
+    // Clear tile instance map
+    this.tileInstanceMap.clear();
   }
 }

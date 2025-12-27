@@ -15,6 +15,14 @@ export class InteractionManager {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.hoveredObject = null;
+    
+    // Performance optimization: Cache meshes and throttle mouse checks
+    this.cachedMeshes = [];
+    this.meshCacheValid = false;
+    this.activeMeshes = new Set(); // Track which meshes are in the scene
+    this.lastMouseCheckTime = 0;
+    this.mouseCheckThrottle = 16; // ~60 checks per second (16ms)
+    
     this.setupEventListeners();
   }
 
@@ -60,19 +68,19 @@ export class InteractionManager {
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // Update tile highlight - use accurate world position
+    // Update tile highlight - use accurate world position (always update, no throttling)
     if (this.tileHighlighter && this.sceneManager && this.sceneManager.tileGrid) {
       const worldPos = this.getMouseWorldPosition();
       this.tileHighlighter.update(worldPos.x, worldPos.z);
     }
 
-    // Update building preview if in placement mode
+    // Update building preview if in placement mode (always update, no throttling)
     if (this.buildingManager && this.buildingManager.placementMode) {
       const worldPos = this.getMouseWorldPosition();
       this.buildingManager.updatePreview(worldPos.x, worldPos.z);
     }
 
-    // Update admin placement preview if in placement mode
+    // Update admin placement preview if in placement mode (always update, no throttling)
     const gameInstance = window.gameInstance;
     if (gameInstance && gameInstance.adminMenu && gameInstance.adminMenu.isPlacementMode()) {
       const worldPos = this.getMouseWorldPosition();
@@ -81,48 +89,30 @@ export class InteractionManager {
       }
     }
 
-    // Check for hover on objects and buildings
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    
-    // Collect all meshes including groups (objects and buildings)
-    const allMeshes = [];
-    
-    // Add world object meshes - only include objects with valid meshes in the scene
-    this.worldObjects.forEach(obj => {
-      // Skip objects without meshes or whose meshes aren't in the scene
-      if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
-        return;
-      }
-      if (obj.mesh instanceof THREE.Group) {
-        obj.mesh.children.forEach(child => allMeshes.push(child));
-      } else {
-        allMeshes.push(obj.mesh);
-      }
-    });
-    
-    // Add building meshes
-    if (this.buildingManager && this.buildingManager.buildings) {
-      this.buildingManager.buildings.forEach(building => {
-        if (building.mesh) {
-          if (building.mesh instanceof THREE.Group) {
-            building.mesh.children.forEach(child => allMeshes.push(child));
-          } else {
-            allMeshes.push(building.mesh);
-          }
-        }
-      });
+    // Throttle expensive raycaster checks
+    const now = performance.now();
+    if (now - this.lastMouseCheckTime < this.mouseCheckThrottle) {
+      return; // Skip this check, too soon since last one
+    }
+    this.lastMouseCheckTime = now;
+
+    // Rebuild mesh cache if invalid
+    if (!this.meshCacheValid) {
+      this.rebuildMeshCache();
     }
 
-    const intersects = this.raycaster.intersectObjects(allMeshes);
+    // Check for hover on objects and buildings using cached meshes
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObjects(this.cachedMeshes);
 
     if (intersects.length > 0) {
       // Find which object or building was hovered
       let hoveredObject = null;
       
-      // Check world objects first - only check objects with valid meshes
+      // Check world objects first - use active meshes set for faster lookup
       for (const obj of this.worldObjects) {
         // Skip objects without meshes or whose meshes aren't in the scene
-        if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
+        if (!obj.mesh || !this.activeMeshes.has(obj.mesh)) {
           continue;
         }
         if (obj.mesh instanceof THREE.Group) {
@@ -457,29 +447,21 @@ export class InteractionManager {
     }
     
     // Check for object clicks (including resources which might be in a group)
-    const allMeshes = [];
-    // Add world object meshes - only include objects with valid meshes in the scene
-    this.worldObjects.forEach(obj => {
-      // Skip objects without meshes or whose meshes aren't in the scene
-      if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
-        return;
-      }
-      if (obj.mesh instanceof THREE.Group) {
-        obj.mesh.children.forEach(child => allMeshes.push(child));
-      } else {
-        allMeshes.push(obj.mesh);
-      }
-    });
+    // Rebuild cache if invalid
+    if (!this.meshCacheValid) {
+      this.rebuildMeshCache();
+    }
+    const allMeshes = this.cachedMeshes;
 
     const intersects = this.raycaster.intersectObjects(allMeshes);
 
     if (intersects.length > 0) {
       // Find which object was clicked
       let clickedObject = null;
-      // Check world objects - only check objects with valid meshes in the scene
+      // Check world objects - use active meshes set for faster lookup
       for (const obj of this.worldObjects) {
         // Skip objects without meshes or whose meshes aren't in the scene
-        if (!obj.mesh || !this.scene.children.includes(obj.mesh)) {
+        if (!obj.mesh || !this.activeMeshes.has(obj.mesh)) {
           continue;
         }
         if (obj.mesh instanceof THREE.Group) {
@@ -591,7 +573,7 @@ export class InteractionManager {
           // Find resources on this tile
           const resourceOnTile = this.worldObjects.find(obj => {
             // Skip objects without meshes or whose meshes aren't in the scene
-            if (!obj || !obj.getTilePosition || !obj.mesh || !this.scene.children.includes(obj.mesh)) return false;
+            if (!obj || !obj.getTilePosition || !obj.mesh || !this.activeMeshes.has(obj.mesh)) return false;
             try {
               if (obj instanceof Resource || (obj.constructor && obj.constructor.name === 'Resource')) {
                 const objTilePos = obj.getTilePosition();
@@ -627,14 +609,78 @@ export class InteractionManager {
     }
   }
 
+  /**
+   * Rebuild the cached mesh array and active meshes set
+   * Called when objects are added/removed or when cache is invalidated
+   */
+  rebuildMeshCache() {
+    this.cachedMeshes = [];
+    this.activeMeshes.clear();
+    
+    // Add world object meshes - only include objects with valid meshes in the scene
+    this.worldObjects.forEach(obj => {
+      if (!obj.mesh) return;
+      
+      // Check if mesh is in scene (only check once when rebuilding cache)
+      if (this.scene.children.includes(obj.mesh)) {
+        this.activeMeshes.add(obj.mesh);
+        if (obj.mesh instanceof THREE.Group) {
+          obj.mesh.children.forEach(child => {
+            this.cachedMeshes.push(child);
+            this.activeMeshes.add(child);
+          });
+        } else {
+          this.cachedMeshes.push(obj.mesh);
+        }
+      }
+    });
+    
+    // Add building meshes
+    if (this.buildingManager && this.buildingManager.buildings) {
+      this.buildingManager.buildings.forEach(building => {
+        if (building.mesh) {
+          if (this.scene.children.includes(building.mesh)) {
+            this.activeMeshes.add(building.mesh);
+            if (building.mesh instanceof THREE.Group) {
+              building.mesh.children.forEach(child => {
+                this.cachedMeshes.push(child);
+                this.activeMeshes.add(child);
+              });
+            } else {
+              this.cachedMeshes.push(building.mesh);
+            }
+          }
+        }
+      });
+    }
+    
+    this.meshCacheValid = true;
+  }
+
+  /**
+   * Invalidate the mesh cache - call this when objects are added/removed
+   */
+  invalidateMeshCache() {
+    this.meshCacheValid = false;
+  }
+
   addObject(object) {
     this.worldObjects.push(object);
+    this.invalidateMeshCache();
   }
 
   removeObject(object) {
     const index = this.worldObjects.indexOf(object);
     if (index > -1) {
       this.worldObjects.splice(index, 1);
+      // Remove from active meshes set if it was there
+      if (object.mesh) {
+        this.activeMeshes.delete(object.mesh);
+        if (object.mesh instanceof THREE.Group) {
+          object.mesh.children.forEach(child => this.activeMeshes.delete(child));
+        }
+      }
+      this.invalidateMeshCache();
     }
   }
 
@@ -825,7 +871,7 @@ export class InteractionManager {
       // Check if there's already a resource of this type on this tile
       const existingResource = this.worldObjects.find(obj => {
         // Skip objects without meshes or whose meshes aren't in the scene
-        if (!obj || !obj.mesh || !this.scene.children.includes(obj.mesh)) return false;
+        if (!obj || !obj.mesh || !this.activeMeshes.has(obj.mesh)) return false;
         if (obj instanceof Resource && obj.type === itemType) {
           const objTilePos = obj.getTilePosition();
           return objTilePos.tileX === tileX && objTilePos.tileZ === tileZ;

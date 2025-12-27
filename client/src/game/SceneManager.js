@@ -759,18 +759,78 @@ export class SceneManager {
       }
     }
 
+    // Get camera focus point for distance-based culling
+    // Use camera position as reference point for culling
+    const cameraPos = this.cameraController ? this.cameraController.focusPoint : null;
+    const maxUpdateDistance = 100; // Only update objects within 100 units of camera focus
+
     // Update villagers
     if (this.villagerManager) {
       this.villagerManager.update(deltaTime);
     }
 
     // Update buildings (for animated effects like campfire)
+    // Buildings are always updated (they're important and usually few in number)
     if (this.buildingManager && this.buildingManager.buildings) {
       this.buildingManager.buildings.forEach(building => {
         if (building.update && typeof building.update === 'function') {
           building.update(deltaTime);
         }
       });
+    }
+
+    // Update world objects with distance-based culling
+    // Only update objects within reasonable distance of camera
+    if (cameraPos && this.worldObjects.length > 0) {
+      for (const obj of this.worldObjects) {
+        // Always update player-related objects and interactive objects
+        if (obj === this.player || (obj.isInteractable && obj.isInteractable)) {
+          if (obj.update && typeof obj.update === 'function') {
+            obj.update(deltaTime);
+          }
+          continue;
+        }
+        
+        // For other objects, check distance
+        if (obj.getPosition && typeof obj.getPosition === 'function') {
+          const objPos = obj.getPosition();
+          if (objPos) {
+            const dx = objPos.x - cameraPos.x;
+            const dz = (objPos.z || 0) - cameraPos.z;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            
+            // Only update if within range
+            if (distance <= maxUpdateDistance) {
+              if (obj.update && typeof obj.update === 'function') {
+                obj.update(deltaTime);
+              }
+            }
+          }
+        } else if (obj.mesh && obj.mesh.position) {
+          // Fallback: use mesh position if getPosition doesn't exist
+          const dx = obj.mesh.position.x - cameraPos.x;
+          const dz = obj.mesh.position.z - cameraPos.z;
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          
+          if (distance <= maxUpdateDistance) {
+            if (obj.update && typeof obj.update === 'function') {
+              obj.update(deltaTime);
+            }
+          }
+        } else {
+          // No position available, update anyway (shouldn't happen often)
+          if (obj.update && typeof obj.update === 'function') {
+            obj.update(deltaTime);
+          }
+        }
+      }
+    } else {
+      // No camera position available, update all objects (fallback)
+      for (const obj of this.worldObjects) {
+        if (obj.update && typeof obj.update === 'function') {
+          obj.update(deltaTime);
+        }
+      }
     }
 
     // Update day/night cycle
