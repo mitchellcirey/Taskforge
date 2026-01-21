@@ -5,6 +5,54 @@ import { HarvestResult } from './HarvestResult.js';
 import { Wood } from './items/resources/Wood.js';
 
 export class Tree extends WorldObject {
+  static leafTexture = null;
+  static leafTexturePromise = null;
+  static leafTextureLoader = new THREE.TextureLoader();
+
+  static preloadTextures() {
+    if (Tree.leafTexturePromise) {
+      return Tree.leafTexturePromise;
+    }
+
+    Tree.leafTexturePromise = new Promise((resolve) => {
+      if (Tree.leafTexture) {
+        resolve(Tree.leafTexture);
+        return;
+      }
+      const texture = Tree.leafTextureLoader.load(
+        'public/images/textures/leaftexture.png',
+        (loaded) => {
+          loaded.wrapS = THREE.RepeatWrapping;
+          loaded.wrapT = THREE.RepeatWrapping;
+          Tree.leafTexture = loaded;
+          resolve(loaded);
+        },
+        undefined,
+        (error) => {
+          console.warn('Failed to load leaf texture:', error);
+          resolve(null);
+        }
+      );
+      if (texture) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+      }
+      Tree.leafTexture = texture;
+    });
+
+    return Tree.leafTexturePromise;
+  }
+
+  static getLeafTexture() {
+    if (Tree.leafTexture) {
+      return Tree.leafTexture;
+    }
+    if (!Tree.leafTexturePromise) {
+      Tree.preloadTextures();
+    }
+    return Tree.leafTexture;
+  }
+
   constructor(scene, tileGrid, tileX, tileZ, sizeVariation = 1.0) {
     super(scene, tileGrid, tileX, tileZ);
     this.health = 3;
@@ -36,16 +84,8 @@ export class Tree extends WorldObject {
     const baseScale = 1.2; // Base scale multiplier to make trees slightly bigger
     const scale = this.sizeVariation * baseScale;
 
-    // Load leaf texture for overlay
-    const textureLoader = new THREE.TextureLoader();
-    const baseLeafTexture = textureLoader.load(
-      'public/images/textures/leaftexture.png',
-      undefined,
-      undefined,
-      (error) => {
-        console.warn('Failed to load leaf texture:', error);
-      }
-    );
+    // Load leaf texture for overlay (shared across trees)
+    const baseLeafTexture = Tree.getLeafTexture();
     // Configure base texture properties
     if (baseLeafTexture) {
       baseLeafTexture.wrapS = THREE.RepeatWrapping;

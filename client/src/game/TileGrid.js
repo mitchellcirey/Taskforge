@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // Chunk size for chunked grid system
-const CHUNK_SIZE = 32;
+export const CHUNK_SIZE = 32;
 
 export class TileGrid {
   constructor(scene, width = 100, height = 100, seed = null) {
@@ -11,6 +11,9 @@ export class TileGrid {
     this.tileSize = 2;
     this.chunks = new Map(); // Map of chunk keys to chunk data
     this.gridHelper = null;
+    this.gridUserVisible = true;
+    this.gridHideDistance = 45;
+    this.lastCameraDistance = null;
     
     // Seed for deterministic generation (Autonauts style)
     this.seed = seed || Math.floor(Math.random() * 1000000);
@@ -112,6 +115,31 @@ export class TileGrid {
       }
     }
     return tiles;
+  }
+
+  // Get chunk world bounds (min/max in world coordinates)
+  getChunkWorldBounds(chunkX, chunkZ) {
+    const minTileX = chunkX * CHUNK_SIZE;
+    const minTileZ = chunkZ * CHUNK_SIZE;
+    const maxTileX = Math.min(minTileX + CHUNK_SIZE - 1, this.width - 1);
+    const maxTileZ = Math.min(minTileZ + CHUNK_SIZE - 1, this.height - 1);
+
+    const minWorld = this.getWorldPosition(minTileX, minTileZ);
+    const maxWorld = this.getWorldPosition(maxTileX, maxTileZ);
+    const halfTile = this.tileSize / 2;
+
+    return {
+      minX: minWorld.x - halfTile,
+      maxX: maxWorld.x + halfTile,
+      minZ: minWorld.z - halfTile,
+      maxZ: maxWorld.z + halfTile,
+      centerX: (minWorld.x + maxWorld.x) / 2,
+      centerZ: (minWorld.z + maxWorld.z) / 2,
+      minTileX,
+      maxTileX,
+      minTileZ,
+      maxTileZ
+    };
   }
 
   // Simple hash function for deterministic random values
@@ -226,13 +254,15 @@ export class TileGrid {
 
   // Initialize chunks for the initial grid
   initializeChunks() {
-    const startChunkX = Math.floor(-this.width / 2 / CHUNK_SIZE);
-    const endChunkX = Math.floor((this.width / 2) / CHUNK_SIZE);
-    const startChunkZ = Math.floor(-this.height / 2 / CHUNK_SIZE);
-    const endChunkZ = Math.floor((this.height / 2) / CHUNK_SIZE);
+    this.preloadAllChunks();
+  }
 
-    for (let chunkX = startChunkX; chunkX <= endChunkX; chunkX++) {
-      for (let chunkZ = startChunkZ; chunkZ <= endChunkZ; chunkZ++) {
+  preloadAllChunks() {
+    const chunkCountX = Math.ceil(this.width / CHUNK_SIZE);
+    const chunkCountZ = Math.ceil(this.height / CHUNK_SIZE);
+
+    for (let chunkX = 0; chunkX < chunkCountX; chunkX++) {
+      for (let chunkZ = 0; chunkZ < chunkCountZ; chunkZ++) {
         this.getChunk(chunkX, chunkZ);
       }
     }
@@ -292,6 +322,21 @@ export class TileGrid {
       // Default to visible on error
       this.gridHelper.visible = true;
     }
+    this.gridUserVisible = this.gridHelper.visible;
+  }
+
+  setGridUserVisible(visible) {
+    this.gridUserVisible = visible;
+    this.updateGridVisibility(this.lastCameraDistance);
+  }
+
+  updateGridVisibility(cameraDistance) {
+    this.lastCameraDistance = cameraDistance;
+    if (!this.gridHelper) return;
+    const withinDistance = cameraDistance === null || cameraDistance === undefined
+      ? true
+      : cameraDistance <= this.gridHideDistance;
+    this.gridHelper.visible = Boolean(this.gridUserVisible && withinDistance);
   }
 
   // Get tile by integer tile coordinates

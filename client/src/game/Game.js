@@ -16,6 +16,7 @@ import { NewGameDialog } from '../ui/NewGameDialog.js';
 import { GameState } from './GameState.js';
 import { getItemTypeRegistry } from './ItemTypeRegistry.js';
 import { ItemType } from './items/ItemType.js';
+import { Tree } from './Tree.js';
 import { AudioManager } from './AudioManager.js';
 import { WebSocketClient } from '../networking/WebSocketClient.js';
 import { SaveManager } from './SaveManager.js';
@@ -781,6 +782,8 @@ export class Game {
     // Give the browser a moment to render the loading screen
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
+    await this.preloadAssets();
+
     // Initialize scene manager
     if (!this.sceneManager) {
       // First time initialization
@@ -908,6 +911,23 @@ export class Game {
         this.nowPlayingUI.showTrack(trackName);
       }
     });
+  }
+
+  async preloadAssets() {
+    if (!this.loadingScreen) return;
+    this.loadingScreen.setLoadingMessage('Preloading item models...');
+    this.loadingScreen.setProgress(5);
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    const itemTypeRegistry = getItemTypeRegistry();
+    const itemIds = itemTypeRegistry.getAll().map(item => item.getId());
+    await ItemType.preloadAllModels(itemIds);
+
+    this.loadingScreen.setLoadingMessage('Preloading tree textures...');
+    this.loadingScreen.setProgress(8);
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    await Tree.preloadTextures();
   }
 
   captureScreenshot() {

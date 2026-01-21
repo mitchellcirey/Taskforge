@@ -885,7 +885,12 @@ export class SettingsMenu {
   }
 
   updateGridVisibility() {
-    if (this.tileGrid && this.tileGrid.gridHelper) {
+    if (!this.tileGrid) return;
+    if (this.tileGrid.setGridUserVisible) {
+      this.tileGrid.setGridUserVisible(this.gridVisible);
+      return;
+    }
+    if (this.tileGrid.gridHelper) {
       this.tileGrid.gridHelper.visible = this.gridVisible;
     }
   }

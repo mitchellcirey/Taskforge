@@ -123,6 +123,11 @@ export class SceneManager {
     // Use provided seed or generate random one
     this.tileGrid = new TileGrid(this.scene, 200, 200, seed);
     this.tileGrid.create();
+    
+    await reportProgress('Preloading tile chunks...', 35, 300);
+    if (this.tileGrid.preloadAllChunks) {
+      this.tileGrid.preloadAllChunks();
+    }
 
     // Step 5: Creating terrain (30%)
     await reportProgress('Generating terrain...', 40, 500);
@@ -514,6 +519,9 @@ export class SceneManager {
     // Create new tile grid with seed
     this.tileGrid = new TileGrid(this.scene, 200, 200, seed);
     this.tileGrid.create();
+    if (this.tileGrid.preloadAllChunks) {
+      this.tileGrid.preloadAllChunks();
+    }
     
     // Create new terrain
     this.terrain = new Terrain(this.scene, this.tileGrid, 200, 200);
@@ -750,6 +758,16 @@ export class SceneManager {
     if (this.cameraController) {
       this.cameraController.update(deltaTime);
     }
+
+    const cameraPos = this.cameraController ? this.cameraController.focusPoint : null;
+    const cameraDistance = this.cameraController ? this.cameraController.distance : null;
+
+    if (this.terrain && this.terrain.updateVisibleChunks) {
+      this.terrain.updateVisibleChunks(this.camera, cameraPos, cameraDistance);
+    }
+    if (this.tileGrid && this.tileGrid.updateGridVisibility) {
+      this.tileGrid.updateGridVisibility(cameraDistance);
+    }
     
     // Update compass UI
     if (this.compassUI) {
@@ -776,7 +794,6 @@ export class SceneManager {
 
     // Get camera focus point for distance-based culling
     // Use camera position as reference point for culling
-    const cameraPos = this.cameraController ? this.cameraController.focusPoint : null;
     const maxUpdateDistance = 100; // Only update objects within 100 units of camera focus
 
     // Update villagers

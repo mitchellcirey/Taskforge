@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CHUNK_SIZE } from './TileGrid.js';
 
 /**
  * Terrain system matching Autonauts' style:
@@ -18,13 +19,22 @@ export class Terrain {
     // Terrain group to hold all tile meshes
     this.terrainGroup = null;
     
-    // Instanced meshes for each tile type (for performance)
-    this.instancedMeshes = new Map();
+    // Chunked instanced meshes for each tile type (for performance)
+    this.chunkData = new Map();
     
     // Performance optimization: Track tile-to-instance mapping for incremental updates
-    // Maps tile key "x,z" to { biomeType, instanceIndex, instancedMesh }
+    // Maps tile key "x,z" to { biomeType, instanceIndex, instancedMesh, chunkKey }
     this.tileInstanceMap = new Map();
     
+    this.chunkSize = CHUNK_SIZE;
+    this.chunkWorldSize = this.chunkSize * this.tileSize;
+    this.baseChunkRadius = 2;
+    this.maxChunkRadius = 6;
+    this.cliffHideDistance = 60;
+    this._frustum = new THREE.Frustum();
+    this._projScreenMatrix = new THREE.Matrix4();
+    this._debugStats = { lastLog: 0 };
+
     // Shared geometry for all tiles (reused across all instanced meshes)
     this.tileGeometry = null;
     
@@ -280,10 +290,11 @@ export class Terrain {
     
     // Clear tile instance map for fresh start
     this.tileInstanceMap.clear();
+    this.chunkData.clear();
     
-    // Group tiles by type for instanced rendering (Autonauts: discrete tiles)
+    // Group tiles by type within chunks for instanced rendering (Autonauts: discrete tiles)
     // Separate groups for texture variants to support random texture assignment
-    const tilePositions = {
+    const createTilePositions = () => ({
       grass: [],
       grass2: [],
       dirt: [],
@@ -291,7 +302,8 @@ export class Terrain {
       sand: [],
       water: [],
       treeSoil: []
-    };
+    });
+    const chunkEntries = new Map();
     
     // Simple seeded random function for deterministic texture assignment
     // Uses tile coordinates as seed for consistent results
@@ -324,67 +336,104 @@ export class Terrain {
           biomeType = 'grass';
         }
         
+        const { chunkX, chunkZ } = this.tileGrid.getChunkCoords(tileX, tileZ);
+        const chunkKey = this.tileGrid.getChunkKey(chunkX, chunkZ);
+        let chunkEntry = chunkEntries.get(chunkKey);
+        if (!chunkEntry) {
+          chunkEntry = {
+            chunkKey,
+            chunkX,
+            chunkZ,
+            tilePositions: createTilePositions()
+          };
+          chunkEntries.set(chunkKey, chunkEntry);
+        }
+
         // For grass and dirt, randomly assign to variant 1 or 2
         if (biomeType === 'grass') {
           const variant = seededRandom(tileX, tileZ) < 0.5 ? 'grass' : 'grass2';
-          tilePositions[variant].push({
+          chunkEntry.tilePositions[variant].push({
             x: worldPos.x,
-            z: worldPos.z
+            z: worldPos.z,
+            tileX,
+            tileZ
           });
         } else if (biomeType === 'dirt') {
           const variant = seededRandom(tileX, tileZ) < 0.5 ? 'dirt' : 'dirt2';
-          tilePositions[variant].push({
+          chunkEntry.tilePositions[variant].push({
             x: worldPos.x,
-            z: worldPos.z
+            z: worldPos.z,
+            tileX,
+            tileZ
           });
-        } else if (tilePositions[biomeType]) {
-          tilePositions[biomeType].push({
+        } else if (chunkEntry.tilePositions[biomeType]) {
+          chunkEntry.tilePositions[biomeType].push({
             x: worldPos.x,
-            z: worldPos.z
+            z: worldPos.z,
+            tileX,
+            tileZ
           });
         }
       }
     }
-    
-    // Create instanced meshes for each biome type (Autonauts: blocky, distinct tiles)
-    for (const [biomeType, positions] of Object.entries(tilePositions)) {
-      if (positions.length === 0) continue;
-      
-      const material = this.materials[biomeType];
-      if (!material) continue;
-      
-      // Use instanced mesh for better performance with many tiles
-      // Each tile is a discrete block (Autonauts style)
-      const instancedMesh = new THREE.InstancedMesh(
-        tileGeometry,
-        material,
-        positions.length
-      );
-      
-      // Set position for each instance (each tile is a separate block)
+
+    // Create instanced meshes for each chunk and biome type
+    for (const chunkEntry of chunkEntries.values()) {
+      const chunkGroup = new THREE.Group();
+      chunkGroup.name = `TerrainChunk_${chunkEntry.chunkKey}`;
+      const instancedMeshes = new Map();
       const matrix = new THREE.Matrix4();
-      for (let i = 0; i < positions.length; i++) {
-        const pos = positions[i];
-        matrix.makeTranslation(pos.x, 0, pos.z);
-        instancedMesh.setMatrixAt(i, matrix);
-        
-        // Track this tile in the instance map for incremental updates
-        // Find the tile coordinates from world position
-        const { tileX, tileZ } = this.tileGrid.worldToTile(pos.x, pos.z);
-        const tileKey = `${tileX},${tileZ}`;
-        this.tileInstanceMap.set(tileKey, {
-          biomeType: biomeType,
-          instanceIndex: i,
-          instancedMesh: instancedMesh
-        });
+
+      for (const [biomeType, positions] of Object.entries(chunkEntry.tilePositions)) {
+        if (positions.length === 0) continue;
+
+        const material = this.materials[biomeType];
+        if (!material) continue;
+
+        const instancedMesh = new THREE.InstancedMesh(
+          tileGeometry,
+          material,
+          positions.length
+        );
+
+        for (let i = 0; i < positions.length; i++) {
+          const pos = positions[i];
+          matrix.makeTranslation(pos.x, 0, pos.z);
+          instancedMesh.setMatrixAt(i, matrix);
+
+          const tileKey = `${pos.tileX},${pos.tileZ}`;
+          this.tileInstanceMap.set(tileKey, {
+            biomeType: biomeType,
+            instanceIndex: i,
+            instancedMesh: instancedMesh,
+            chunkKey: chunkEntry.chunkKey
+          });
+        }
+
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        instancedMesh.receiveShadow = true;
+        instancedMesh.castShadow = false;
+
+        chunkGroup.add(instancedMesh);
+        instancedMeshes.set(biomeType, instancedMesh);
       }
-      
-      instancedMesh.instanceMatrix.needsUpdate = true;
-      instancedMesh.receiveShadow = true;
-      instancedMesh.castShadow = false;
-      
-      this.terrainGroup.add(instancedMesh);
-      this.instancedMeshes.set(biomeType, instancedMesh);
+
+      const bounds = this.tileGrid.getChunkWorldBounds(chunkEntry.chunkX, chunkEntry.chunkZ);
+      const box = new THREE.Box3(
+        new THREE.Vector3(bounds.minX, -this.cliffHeight - 1, bounds.minZ),
+        new THREE.Vector3(bounds.maxX, 1, bounds.maxZ)
+      );
+
+      this.chunkData.set(chunkEntry.chunkKey, {
+        chunkX: chunkEntry.chunkX,
+        chunkZ: chunkEntry.chunkZ,
+        group: chunkGroup,
+        instancedMeshes,
+        bounds,
+        box
+      });
+
+      this.terrainGroup.add(chunkGroup);
     }
     
     // Add terrain group to scene
@@ -401,7 +450,7 @@ export class Terrain {
       height: this.height,
       tileSize: this.tileSize,
       totalTiles: this.width * this.height,
-      instancedMeshes: Array.from(this.instancedMeshes.keys())
+      chunkCount: this.chunkData.size
     });
   }
   
@@ -590,18 +639,103 @@ export class Terrain {
     return biomeType;
   }
 
+  getChunkKeyForTile(tileX, tileZ) {
+    const { chunkX, chunkZ } = this.tileGrid.getChunkCoords(tileX, tileZ);
+    return this.tileGrid.getChunkKey(chunkX, chunkZ);
+  }
+
+  getChunkDataForTile(tileX, tileZ) {
+    const chunkKey = this.getChunkKeyForTile(tileX, tileZ);
+    return { chunkKey, chunkData: this.chunkData.get(chunkKey) };
+  }
+
+  getCullingChunkRadius(cameraDistance) {
+    if (cameraDistance === null || cameraDistance === undefined) {
+      return this.maxChunkRadius;
+    }
+    const scaledRadius = Math.ceil(cameraDistance / this.chunkWorldSize) + 1;
+    return Math.max(this.baseChunkRadius, Math.min(this.maxChunkRadius, scaledRadius));
+  }
+
+  getMaxChunkDistance(cameraDistance) {
+    const radiusInChunks = this.getCullingChunkRadius(cameraDistance);
+    return radiusInChunks * this.chunkWorldSize + this.chunkWorldSize * 0.5;
+  }
+
+  maybeLogCullingStats(visibleChunks) {
+    if (typeof window === 'undefined' || !window.DEBUG_TERRAIN_CULLING) return;
+    const now = performance.now();
+    if (now - this._debugStats.lastLog < 1000) return;
+    this._debugStats.lastLog = now;
+    console.log('Terrain culling:', {
+      visibleChunks,
+      totalChunks: this.chunkData.size
+    });
+  }
+
+  updateVisibleChunks(camera, cameraFocus, cameraDistance) {
+    if (!camera || this.chunkData.size === 0) return;
+
+    this._projScreenMatrix.multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse
+    );
+    this._frustum.setFromProjectionMatrix(this._projScreenMatrix);
+
+    const maxDistance = this.getMaxChunkDistance(cameraDistance);
+    let visibleChunks = 0;
+
+    for (const chunkData of this.chunkData.values()) {
+      let visible = true;
+
+      if (cameraFocus) {
+        const dx = chunkData.bounds.centerX - cameraFocus.x;
+        const dz = chunkData.bounds.centerZ - cameraFocus.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        visible = distance <= maxDistance;
+      }
+
+      if (visible && chunkData.box) {
+        visible = this._frustum.intersectsBox(chunkData.box);
+      }
+
+      if (chunkData.group.visible !== visible) {
+        chunkData.group.visible = visible;
+      }
+      if (visible) {
+        visibleChunks += 1;
+      }
+    }
+
+    if (this.cliffGroup) {
+      const showCliffs = cameraDistance === null || cameraDistance === undefined
+        ? true
+        : cameraDistance <= this.cliffHideDistance;
+      this.cliffGroup.visible = showCliffs;
+    }
+
+    this.maybeLogCullingStats(visibleChunks);
+  }
+
   /**
    * Remove a tile instance from an instanced mesh
    */
   removeTileInstance(tileKey, instanceData) {
-    const { instancedMesh, instanceIndex } = instanceData;
+    const { instancedMesh, instanceIndex, chunkKey } = instanceData;
     const count = instancedMesh.count;
+    const chunkData = chunkKey ? this.chunkData.get(chunkKey) : null;
     
     if (count === 1) {
       // Last instance - remove the entire mesh
-      this.terrainGroup.remove(instancedMesh);
+      if (chunkData && chunkData.group) {
+        chunkData.group.remove(instancedMesh);
+      } else {
+        this.terrainGroup.remove(instancedMesh);
+      }
       instancedMesh.dispose();
-      this.instancedMeshes.delete(instanceData.biomeType);
+      if (chunkData) {
+        chunkData.instancedMeshes.delete(instanceData.biomeType);
+      }
       return null;
     }
     
@@ -633,7 +767,13 @@ export class Terrain {
    */
   addTileInstance(biomeType, tileX, tileZ) {
     const worldPos = this.tileGrid.getWorldPosition(tileX, tileZ);
-    let instancedMesh = this.instancedMeshes.get(biomeType);
+    const { chunkKey, chunkData } = this.getChunkDataForTile(tileX, tileZ);
+    if (!chunkData) {
+      console.warn(`No chunk data found for tile ${tileX},${tileZ}`);
+      return null;
+    }
+
+    let instancedMesh = chunkData.instancedMeshes.get(biomeType);
     
     if (!instancedMesh) {
       // Create new instanced mesh for this biome type
@@ -650,8 +790,8 @@ export class Terrain {
       );
       instancedMesh.receiveShadow = true;
       instancedMesh.castShadow = false;
-      this.terrainGroup.add(instancedMesh);
-      this.instancedMeshes.set(biomeType, instancedMesh);
+      chunkData.group.add(instancedMesh);
+      chunkData.instancedMeshes.set(biomeType, instancedMesh);
     }
     
     // Check if we need to increase capacity
@@ -677,9 +817,9 @@ export class Terrain {
       }
       
       // Replace old mesh
-      this.terrainGroup.remove(instancedMesh);
-      this.terrainGroup.add(newMesh);
-      this.instancedMeshes.set(biomeType, newMesh);
+      chunkData.group.remove(instancedMesh);
+      chunkData.group.add(newMesh);
+      chunkData.instancedMeshes.set(biomeType, newMesh);
       
       // Update all tile instance references
       for (const data of this.tileInstanceMap.values()) {
@@ -700,7 +840,7 @@ export class Terrain {
     instancedMesh.count = instanceIndex + 1;
     instancedMesh.instanceMatrix.needsUpdate = true;
     
-    return { instancedMesh, instanceIndex };
+    return { instancedMesh, instanceIndex, chunkKey };
   }
 
   /**
@@ -740,7 +880,8 @@ export class Terrain {
       this.tileInstanceMap.set(tileKey, {
         biomeType: newBiomeVariant,
         instanceIndex: newInstanceData.instanceIndex,
-        instancedMesh: newInstanceData.instancedMesh
+        instancedMesh: newInstanceData.instancedMesh,
+        chunkKey: newInstanceData.chunkKey
       });
     }
   }
@@ -818,7 +959,7 @@ export class Terrain {
       this.dirtTexture2 = null;
     }
     
-    this.instancedMeshes.clear();
+    this.chunkData.clear();
     
     // Dispose shared geometry
     if (this.tileGeometry) {
